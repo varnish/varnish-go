@@ -18,28 +18,41 @@ go get github.com/varnish/varnish-go/adm
 # Example
 
 ``` go
-// create a test backend
-svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        fmt.Fprintf(w, "this is my body")
-}))                                                                                                                                                                           
+package main
 
-// add the backend definition to the loaded VCL                                                                                                                                                       
-varnish, err := New().Backend("svr", svr.URL).Start()
-if err != nil {
-        panic(err)
-}
-defer varnish.Stop()
+import (
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
 
-resp, err := http.Get(varnish.URL)                                                                                                                             
-if err != nil {
-        panic(err)
-}
-defer resp.Body.Close()
+	"github.com/varnish/varnish-go/vtest"
+)
 
-body, err := io.ReadAll(resp.Body)
-if err != nil {
-        panic(err)
+func main() {
+	// create a test backend
+	svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "this is my body")
+	}))                                                                                                                                                                           
+
+	// add the backend definition to the loaded VCL                                                                                                                                                       
+	varnish, err := vtest.New().Backend("svr", svr.URL).Start()
+	if err != nil {
+		panic(err)
+	}
+	defer varnish.Stop()
+
+	resp, err := http.Get(varnish.URL)                                                                                                                             
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("response body: %s\n", string(body))
 }
-                                                                                                                                                               
-fmt.Printf("response body: %s", string(body))
 ```
