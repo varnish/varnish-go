@@ -4,7 +4,7 @@
 // but provides a more golang idiomatic interface.
 //
 // [varnishtest]: https://www.varnish-software.com/developers/tutorials/testing-varnish-varnishtest/
-package test
+package vtest
 
 import (
 	"fmt"
@@ -215,6 +215,11 @@ func (uv *VarnishBuilder) Start() (varnish Varnish, err error) {
 	varnish.WaitRunning()
 
 	return
+}
+
+// The workdir path
+func (varnish *Varnish) Name() string {
+	return varnish.name
 }
 
 // Blocking function that will return only when the Varnish child is running. You should generally not need it as

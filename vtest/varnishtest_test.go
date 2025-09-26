@@ -1,4 +1,4 @@
-package test
+package vtest_test
 
 import (
 	"fmt"
@@ -9,11 +9,12 @@ import (
 	"testing"
 
 	"github.com/varnish/varnish-go/adm"
+	"github.com/varnish/varnish-go/vtest"
 )
 
 func TestSynth(t *testing.T) {
 	// just a simple VCL with a synthetic response
-	varnish, err := New().VclString(`
+	varnish, err := vtest.New().VclString(`
                 backend default none;
 
                 sub vcl_recv {
@@ -47,7 +48,7 @@ func TestBackend(t *testing.T) {
 	}))
 
 	// add the backend definition to the loaded VCL
-	varnish, err := New().Backend("svr", svr.URL).Start()
+	varnish, err := vtest.New().Backend("svr", svr.URL).Start()
 	if err != nil {
 		t.Error(err)
 		return
@@ -81,7 +82,7 @@ func TestRouting(t *testing.T) {
 	}))
 
 	// add the backend definition to the loaded VCL
-	varnish, err := New().
+	varnish, err := vtest.New().
 		Backend("svrA", svrA.URL).
 		Backend("svrB", svrB.URL).
 		VclString(`
@@ -128,7 +129,7 @@ func TestRouting(t *testing.T) {
 func TestAdm(t *testing.T) {
 
 	// just a simple VCL with a synthetic response
-	varnish, err := New().VclString(`
+	varnish, err := vtest.New().VclString(`
                 backend default none;
 
                 sub vcl_recv {
@@ -153,7 +154,7 @@ func TestAdm(t *testing.T) {
 	}
 
 	// ask directly via adm
-	conn, err := adm.Connect(varnish.name)
+	conn, err := adm.Connect(varnish.Name())
 	if err != nil {
 		t.Error(err)
 		return
@@ -172,7 +173,7 @@ func TestAdm(t *testing.T) {
 // Build a one-shot Varnish server, feed it a VCL and print the
 // status of a GET request
 func Example() {
-	varnish, err := New().VclString(`
+	varnish, err := vtest.New().VclString(`
                 backend default none;
 
                 sub vcl_recv {
@@ -199,7 +200,7 @@ func Example() {
 // so that multiple functions can be chaind together.
 func ExampleVarnishBuilder() {
 	// add the backend definition to the loaded VCL
-	varnish, err := New().
+	varnish, err := vtest.New().
 		Backend("primary", "http://1.2.3.4:8080").
 		Backend("secondary", "http://5.6.7.8:8080").
 		Parameter("connect_timeout", "10s").
@@ -226,7 +227,7 @@ func ExampleVarnishBuilder_Backend() {
 	}))
 
 	// add the backend definition to the loaded VCL
-	varnish, err := New().Backend("svr", svr.URL).Start()
+	varnish, err := vtest.New().Backend("svr", svr.URL).Start()
 	if err != nil {
 		panic(err)
 	}
