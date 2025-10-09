@@ -1,4 +1,4 @@
-// This package provides facilities to build one-shot instances that you can test
+// Package vtest provides facilities to build one-shot instances that you can test
 // using regular golang HTTP entities.
 // It's the "equivalent" of the [varnishtest] command
 // but provides a more golang idiomatic interface.
@@ -33,7 +33,7 @@ type backend struct {
 	ssl  bool
 }
 
-// A configuration object collecting options before the actual Varnish instance is actually started.
+// VarnishBuilder is a configuration object collecting options before the actual Varnish instance is started.
 type VarnishBuilder struct {
 	vclIsFile  bool
 	vclString  string
@@ -43,9 +43,10 @@ type VarnishBuilder struct {
 	backends   []backend
 }
 
-// A running Varnish instance, it must not be use once [Varnish.Close] has been called.
+// Varnish describes a running varnish instance, it must not be used once [Varnish.Stop] has been called.
 type Varnish struct {
-	// Varnish is started with a random port, you can use [Varnish.URL] to discover the listening endpoint.
+	// URL is the HTTP endpoint where Varnish is listening.
+	// Varnish is started with a random port, discovered after startup.
 	URL string
 
 	cmd  *exec.Cmd
@@ -53,58 +54,57 @@ type Varnish struct {
 	conn adm.Conn
 }
 
-type socket struct {
-	Endpoint string `json:"Endpoint"`
-}
-
-// Create a new builder, it will default to VCL version 4.1 and will provide no backend by default
+// New creates a new VarnishBuilder with default settings.
+// It defaults to VCL version 4.1 and provides no backend by default.
 func New() *VarnishBuilder {
-	uv := &VarnishBuilder{}
-	uv.Vcl41()
-	return uv
+	vb := &VarnishBuilder{}
+	vb.Vcl41()
+	return vb
 }
 
-// Provide a string containing the VCL to run. Note that the VCL version and backend definitions (according to [Varnish.Backend]) will be prepended to this string.
-func (uv *VarnishBuilder) VclString(s string) *VarnishBuilder {
-	uv.vclIsFile = false
-	uv.vclString = s
-	return uv
+// VclString provides a string containing the VCL to run.
+// Note that the VCL version and backend definitions (according to [VarnishBuilder.Backend]) will be prepended to this string.
+func (vb *VarnishBuilder) VclString(s string) *VarnishBuilder {
+	vb.vclIsFile = false
+	vb.vclString = s
+	return vb
 }
 
-// Select a path to the VCL file to load
-func (uv *VarnishBuilder) VclFile(s string) *VarnishBuilder {
-	uv.vclIsFile = true
-	uv.vclString = s
-	return uv
+// VclFile selects a path to the VCL file to load.
+func (vb *VarnishBuilder) VclFile(s string) *VarnishBuilder {
+	vb.vclIsFile = true
+	vb.vclString = s
+	return vb
 }
 
-// Append a parameter to the varnishd command
-func (uv *VarnishBuilder) Parameter(name string, value string) *VarnishBuilder {
-	uv.parameters = append(uv.parameters, parameter{name: name, value: value})
-	return uv
+// Parameter appends a parameter to the varnishd command.
+func (vb *VarnishBuilder) Parameter(name string, value string) *VarnishBuilder {
+	vb.parameters = append(vb.parameters, parameter{name: name, value: value})
+	return vb
 }
 
-// Set the VCL version to 4.1
-func (uv *VarnishBuilder) Vcl41() *VarnishBuilder {
-	uv.vclVersion = "vcl 4.1;\n\n"
-	return uv
+// Vcl41 sets the VCL version to 4.1.
+func (vb *VarnishBuilder) Vcl41() *VarnishBuilder {
+	vb.vclVersion = "vcl 4.1;\n\n"
+	return vb
 }
 
-// Set the VCL version to 4.0
-func (uv *VarnishBuilder) Vcl40() *VarnishBuilder {
-	uv.vclVersion = "vcl 4.0;\n\n"
-	return uv
+// Vcl40 sets the VCL version to 4.0.
+func (vb *VarnishBuilder) Vcl40() *VarnishBuilder {
+	vb.vclVersion = "vcl 4.0;\n\n"
+	return vb
 }
 
-// Set the VCL version to the value of version
-func (uv *VarnishBuilder) VCLVersion(version string) *VarnishBuilder {
-	uv.vclVersion = version
-	return uv
+// VCLVersion sets the VCL version to the value of version.
+func (vb *VarnishBuilder) VCLVersion(version string) *VarnishBuilder {
+	vb.vclVersion = version
+	return vb
 }
 
-// Create a VCL backend definition. Name must be a valid VCL backend name, otherwise Varnish will fail to start.
-// This call will panic if urlRaw isn't parsable into a [net.URL]
-func (uv *VarnishBuilder) Backend(name string, urlRaw string) *VarnishBuilder {
+// Backend creates a VCL backend definition.
+// Name must be a valid VCL backend name, otherwise Varnish will fail to start.
+// This call will panic if urlRaw isn't parsable into a [url.URL].
+func (vb *VarnishBuilder) Backend(name string, urlRaw string) *VarnishBuilder {
 	u, err := url.Parse(urlRaw)
 	if err != nil {
 		panic(err)
@@ -124,21 +124,23 @@ func (uv *VarnishBuilder) Backend(name string, urlRaw string) *VarnishBuilder {
 
 	host := u.Hostname()
 
-	uv.backends = append(uv.backends, backend{
-		name,
-		host,
-		port,
-		ssl,
+	vb.backends = append(vb.backends, backend{
+		name: name,
+		host: host,
+		port: port,
+		ssl:  ssl,
 	})
-	return uv
+	return vb
 }
 
-// Start a Varnish instance using the options specified in VarnishBuilder. The VarnishBuilder point must not be used after this calling this function.
-func (uv *VarnishBuilder) Start() (varnish Varnish, err error) {
+// Start starts a Varnish instance using the options specified in VarnishBuilder.
+// The VarnishBuilder pointer must not be used after calling this function.
+func (vb *VarnishBuilder) Start() (varnish Varnish, err error) {
 	sock, err := net.Listen("tcp", ":0")
 	if err != nil {
 		return
 	}
+	defer sock.Close()
 
 	name := fmt.Sprintf("/tmp/varnishtest-go.%s", uuid.NewString())
 
@@ -156,13 +158,11 @@ func (uv *VarnishBuilder) Start() (varnish Varnish, err error) {
 		"-p", "h2_rx_window_low_water=64k",
 		"-M", sock.Addr().String(),
 	}
-	for _, p := range uv.parameters {
+	for _, p := range vb.parameters {
 		args = append(args, p.name, p.value)
 	}
 
-	cmd := exec.Command("varnishd",
-		args...,
-	)
+	cmd := exec.Command("varnishd", args...)
 
 	err = cmd.Start()
 	if err != nil {
@@ -180,14 +180,14 @@ func (uv *VarnishBuilder) Start() (varnish Varnish, err error) {
 		conn: conn,
 	}
 
-	if uv.vclIsFile {
-		_, err = varnish.Adm("vcl.load", "vcl1", uv.vclString)
+	if vb.vclIsFile {
+		_, err = varnish.Adm("vcl.load", "vcl1", vb.vclString)
 		if err != nil {
 			return
 		}
 	} else {
 		backendString := ""
-		for _, b := range uv.backends {
+		for _, b := range vb.backends {
 			backendString += fmt.Sprintf(`backend %s {
 	.host = "%s";
 	.port = "%s";
@@ -196,7 +196,7 @@ func (uv *VarnishBuilder) Start() (varnish Varnish, err error) {
 `, b.name, b.host, b.port, b.host)
 		}
 
-		vcl := fmt.Sprintf("%s%s%s", uv.vclVersion, backendString, uv.vclString)
+		vcl := fmt.Sprintf("%s%s%s", vb.vclVersion, backendString, vb.vclString)
 		_, err = varnish.Adm("vcl.inline", "vcl1 << XXYYZZ\n", vcl, "\nXXYYZZ")
 		if err != nil {
 			return
@@ -212,29 +212,32 @@ func (uv *VarnishBuilder) Start() (varnish Varnish, err error) {
 		return
 	}
 
-	varnish.WaitRunning()
+	err = varnish.WaitRunning()
+	if err != nil {
+		return
+	}
 
 	return
 }
 
-// The workdir path
-func (varnish *Varnish) Name() string {
-	return varnish.name
+// Name returns the workdir path.
+func (v *Varnish) Name() string {
+	return v.name
 }
 
-// Blocking function that will return only when the Varnish child is running. You should generally not need it as
-// this is already called as part of [VarnishBuilder.Start].
-func (varnish *Varnish) WaitRunning() error {
-	resp, err := varnish.Adm("status")
+// WaitRunning blocks until the Varnish child is running.
+// You should generally not need this as it is already called as part of [VarnishBuilder.Start].
+func (v *Varnish) WaitRunning() error {
+	resp, err := v.Adm("status")
 	for {
 		if err != nil {
 			return err
 		}
-		if string(resp) == "Child in state stopped" {
-			return fmt.Errorf("Child stopped before running")
+		if resp == "Child in state stopped" {
+			return fmt.Errorf("child stopped before running")
 		}
-		if string(resp) == "Child in state running\n" {
-			resp, err = varnish.Adm("debug.listen_address")
+		if resp == "Child in state running\n" {
+			resp, err = v.Adm("debug.listen_address")
 			if err != nil {
 				return err
 			}
@@ -242,12 +245,12 @@ func (varnish *Varnish) WaitRunning() error {
 			var name string
 			var addr string
 			var port int
-			_, err := fmt.Sscanf(string(resp), "%s %s %d\n", &name, &addr, &port)
+			_, err := fmt.Sscanf(resp, "%s %s %d\n", &name, &addr, &port)
 			if err != nil {
 				return err
 			}
 			// FIXME: IPv6
-			varnish.URL = fmt.Sprintf("http://%s:%d", addr, port)
+			v.URL = fmt.Sprintf("http://%s:%d", addr, port)
 			break
 		}
 		time.Sleep(200 * time.Millisecond)
@@ -255,24 +258,27 @@ func (varnish *Varnish) WaitRunning() error {
 	return nil
 }
 
-// Send a command to the admin socket, with more control and less convenience. It's just a passthrough for [adm.Conn.AskRaw].
-func (varnish *Varnish) AdmRaw(args ...string) (int, []byte, error) {
-	return varnish.conn.AskRaw(args...)
+// AdmRaw sends a command to the admin socket, with more control and less convenience.
+// It's just a passthrough for [adm.Conn.AskRaw].
+func (v *Varnish) AdmRaw(args ...string) (int, []byte, error) {
+	return v.conn.AskRaw(args...)
 }
 
-// Send a command to the admin socket. It's just a passthrough for [adm.Conn.Ask].
-func (varnish *Varnish) Adm(args ...string) (string, error) {
-	return varnish.conn.Ask(args...)
+// Adm sends a command to the admin socket.
+// It's just a passthrough for [adm.Conn.Ask].
+func (v *Varnish) Adm(args ...string) (string, error) {
+	return v.conn.Ask(args...)
 }
 
-// Stop and clean the running Varnish instance. The call must call this to avoid littered file systems and forever-running processes.
-func (varnish *Varnish) Stop() {
-	varnish.Adm("stop")
-	varnish.conn.Close()
+// Stop stops and cleans the running Varnish instance.
+// The caller must call this to avoid littered file systems and forever-running processes.
+func (v *Varnish) Stop() {
+	_, _ = v.Adm("stop")
+	_ = v.conn.Close()
 
-	if err := varnish.cmd.Process.Kill(); err != nil {
+	if err := v.cmd.Process.Kill(); err != nil {
 		log.Printf("failed to kill process: %s\n", err)
 	}
 
-	os.RemoveAll(varnish.name)
+	_ = os.RemoveAll(v.name)
 }
