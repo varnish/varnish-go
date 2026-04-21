@@ -8,18 +8,27 @@ package vtest
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
+	"syscall"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/varnish/varnish-go/adm"
 )
+
+const backendTemplate = `backend %s {
+	.host = "%s";
+	.port = "%s";
+	.host_header = "%s";
+}`
 
 type parameter struct {
 	name  string
@@ -41,6 +50,9 @@ type VarnishBuilder struct {
 
 	parameters []parameter
 	backends   []backend
+
+	varnishlogWriter io.Writer
+	varnishlogArgs   []string
 }
 
 // Varnish describes a running varnish instance, it must not be used once [Varnish.Stop] has been called.
@@ -49,9 +61,11 @@ type Varnish struct {
 	// Varnish is started with a random port, discovered after startup.
 	URL string
 
-	cmd  *exec.Cmd
-	name string
-	conn adm.Conn
+	cmd            *exec.Cmd
+	varnishlogCmd  *exec.Cmd
+	varnishlogDone <-chan error
+	name           string
+	conn           adm.Conn
 }
 
 // New creates a new VarnishBuilder with default settings.
@@ -98,6 +112,16 @@ func (vb *VarnishBuilder) Vcl40() *VarnishBuilder {
 // VCLVersion sets the VCL version to the value of version.
 func (vb *VarnishBuilder) VCLVersion(version string) *VarnishBuilder {
 	vb.vclVersion = version
+	return vb
+}
+
+// VarnishLog configures a varnishlog process alongside the Varnish instance.
+// If w is an *os.File, varnishlog writes binary VSL format via -w.
+// Otherwise varnishlog's text output is piped directly into w (e.g. *bytes.Buffer, os.Stdout).
+// Extra varnishlog arguments (e.g. query expressions) can be passed via args.
+func (vb *VarnishBuilder) VarnishLog(w io.Writer, args ...string) *VarnishBuilder {
+	vb.varnishlogWriter = w
+	vb.varnishlogArgs = args
 	return vb
 }
 
@@ -186,17 +210,12 @@ func (vb *VarnishBuilder) Start() (varnish Varnish, err error) {
 			return
 		}
 	} else {
-		backendString := ""
+		var backendString strings.Builder
 		for _, b := range vb.backends {
-			backendString += fmt.Sprintf(`backend %s {
-	.host = "%s";
-	.port = "%s";
-	.host_header = "%s";
-}
-`, b.name, b.host, b.port, b.host)
+			fmt.Fprintf(&backendString, backendTemplate, b.name, b.host, b.port, b.host)
 		}
 
-		vcl := fmt.Sprintf("%s%s%s", vb.vclVersion, backendString, vb.vclString)
+		vcl := fmt.Sprintf("%s%s%s", vb.vclVersion, backendString.String(), vb.vclString)
 		_, err = varnish.Adm("vcl.inline", "vcl1 << XXYYZZ\n", vcl, "\nXXYYZZ")
 		if err != nil {
 			return
@@ -215,6 +234,13 @@ func (vb *VarnishBuilder) Start() (varnish Varnish, err error) {
 	err = varnish.WaitRunning()
 	if err != nil {
 		return
+	}
+
+	if vb.varnishlogWriter != nil {
+		err = varnish.startVarnishLog(vb.varnishlogWriter, vb.varnishlogArgs)
+		if err != nil {
+			return
+		}
 	}
 
 	return
@@ -249,12 +275,42 @@ func (v *Varnish) WaitRunning() error {
 			if err != nil {
 				return err
 			}
-			// FIXME: IPv6
-			v.URL = fmt.Sprintf("http://%s:%d", addr, port)
+			v.URL = "http://" + net.JoinHostPort(addr, fmt.Sprintf("%d", port))
 			break
 		}
 		time.Sleep(200 * time.Millisecond)
 	}
+	return nil
+}
+
+// startVarnishLog starts a varnishlog process and waits until it is confirmed running.
+func (v *Varnish) startVarnishLog(w io.Writer, extraArgs []string) error {
+	var args []string
+	if f, ok := w.(*os.File); ok {
+		args = append([]string{"-n", v.name, "-w", f.Name(), "-t", "1"}, extraArgs...)
+	} else {
+		args = append([]string{"-n", v.name, "-t", "1"}, extraArgs...)
+	}
+	v.varnishlogCmd = exec.Command("varnishlog", args...)
+	if _, ok := w.(*os.File); !ok {
+		v.varnishlogCmd.Stdout = w
+	}
+
+	if err := v.varnishlogCmd.Start(); err != nil {
+		return err
+	}
+
+	done := make(chan error, 1)
+	go func() { done <- v.varnishlogCmd.Wait() }()
+	v.varnishlogDone = done
+
+	// Give varnishlog time to attach to the VSL.
+	select {
+	case err := <-done:
+		return fmt.Errorf("varnishlog failed: %w", err)
+	case <-time.After(500 * time.Millisecond):
+	}
+
 	return nil
 }
 
@@ -278,6 +334,16 @@ func (v *Varnish) Stop() {
 
 	if err := v.cmd.Process.Kill(); err != nil {
 		log.Printf("failed to kill process: %s\n", err)
+	}
+
+	if v.varnishlogCmd != nil {
+		_ = v.varnishlogCmd.Process.Signal(syscall.SIGTERM)
+		select {
+		case <-v.varnishlogDone:
+		case <-time.After(5 * time.Second):
+			_ = v.varnishlogCmd.Process.Kill()
+			<-v.varnishlogDone
+		}
 	}
 
 	_ = os.RemoveAll(v.name)

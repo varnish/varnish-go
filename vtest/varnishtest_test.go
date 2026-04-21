@@ -5,6 +5,9 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"os/exec"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -29,7 +32,6 @@ func TestSynth(t *testing.T) {
 
 	// use a regular client to send a request
 	resp, err := http.Get(varnish.URL + "/test")
-
 	// test the response using generic go facilities
 	if err != nil {
 		t.Error(err)
@@ -127,7 +129,6 @@ func TestRouting(t *testing.T) {
 }
 
 func TestAdm(t *testing.T) {
-
 	// just a simple VCL with a synthetic response
 	varnish, err := vtest.New().VclString(`
                 backend default none;
@@ -170,6 +171,127 @@ func TestAdm(t *testing.T) {
 	}
 }
 
+const synthVCL = `
+	backend default none;
+	sub vcl_recv {
+		return(synth(200, "ok"));
+	}
+`
+
+// countBeginReq reads a binary VSL file and returns the number of client-request
+// Begin entries, which equals the number of requests processed by Varnish.
+func countBeginReq(t *testing.T, path string) int {
+	t.Helper()
+	out, err := exec.Command("varnishlog", "-r", path, "-d", "-g", "raw", "-i", "Begin").Output()
+	if err != nil {
+		t.Fatalf("varnishlog -r failed: %v", err)
+	}
+	count := 0
+	for line := range strings.SplitSeq(string(out), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) >= 4 && fields[1] == "Begin" && fields[3] == "req" {
+			count++
+		}
+	}
+	return count
+}
+
+func TestVarnishLogFile(t *testing.T) {
+	f, err := os.CreateTemp("", "varnishlog-*.vsl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(f.Name())
+	f.Close()
+
+	varnish, err := vtest.New().VclString(synthVCL).VarnishLog(f).Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const n = 20
+	for range n {
+		resp, err := http.Get(varnish.URL + "/test")
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+	}
+
+	varnish.Stop()
+
+	got := countBeginReq(t, f.Name())
+	if got != n {
+		t.Errorf("expected %d Begin req entries, got %d", n, got)
+	}
+}
+
+func TestVarnishLogText(t *testing.T) {
+	var buf strings.Builder
+
+	varnish, err := vtest.New().VclString(synthVCL).VarnishLog(&buf).Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const n = 20
+	for range n {
+		resp, err := http.Get(varnish.URL + "/test")
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+	}
+
+	varnish.Stop()
+
+	got := 0
+	for line := range strings.SplitSeq(buf.String(), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) >= 4 && fields[1] == "Begin" && fields[2] == "req" {
+			got++
+		}
+	}
+	if got != n {
+		t.Errorf("expected %d Begin req lines, got %d\noutput:\n%s",
+			n, got, buf.String())
+	}
+}
+
+// TestVarnishLogCoverage runs multiple request counts to exercise the sleep-based
+// varnihslog attachment window under load.
+func TestVarnishLogCoverage(t *testing.T) {
+	for _, n := range []int{1, 5, 50} {
+		t.Run(strconv.Itoa(n)+"reqs", func(t *testing.T) {
+			f, err := os.CreateTemp("", "varnishlog-*.vsl")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer os.Remove(f.Name())
+			f.Close()
+
+			varnish, err := vtest.New().VclString(synthVCL).VarnishLog(f).Start()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			for range n {
+				resp, err := http.Get(varnish.URL + "/test")
+				if err != nil {
+					t.Fatal(err)
+				}
+				resp.Body.Close()
+			}
+			varnish.Stop()
+
+			got := countBeginReq(t, f.Name())
+			if got != n {
+				t.Errorf("n=%d: expected %d Begin req entries, got %d", n, n, got)
+			}
+		})
+	}
+}
+
 // Build a one-shot Varnish server, feed it a VCL and print the
 // status of a GET request
 func Example() {
@@ -187,7 +309,6 @@ func Example() {
 
 	// use a regular client to send a request
 	resp, err := http.Get(varnish.URL + "/test")
-
 	// test the response using generic go facilities
 	if err != nil {
 		panic(err)
