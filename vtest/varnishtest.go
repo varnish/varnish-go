@@ -19,6 +19,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/varnish/varnish-go/adm"
+	"github.com/varnish/varnish-go/stat"
 )
 
 type parameter struct {
@@ -268,6 +269,26 @@ func (v *Varnish) AdmRaw(args ...string) (int, []byte, error) {
 // It's just a passthrough for [adm.Conn.Ask].
 func (v *Varnish) Adm(args ...string) (string, error) {
 	return v.conn.Ask(args...)
+}
+
+// CounterValue returns the current value of the named counter (e.g. "MAIN.cache_hit"),
+// or an error if the counter is not found or the stat reader fails.
+func (v *Varnish) CounterValue(name string) (uint64, error) {
+	r, err := stat.New().SetName(v.name).Attach()
+	if err != nil {
+		return 0, err
+	}
+	defer r.Close()
+
+	if _, _, err := r.Update(); err != nil {
+		return 0, err
+	}
+
+	val, ok := r.CounterValue(name)
+	if !ok {
+		return 0, fmt.Errorf("counter %q not found", name)
+	}
+	return val, nil
 }
 
 // Stop stops and cleans the running Varnish instance.

@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/varnish/varnish-go/adm"
 	"github.com/varnish/varnish-go/vtest"
@@ -218,6 +219,39 @@ func ExampleVarnishBuilder() {
 		panic(err)
 	}
 	defer varnish.Stop()
+}
+
+func TestCounterValue(t *testing.T) {
+	varnish, err := vtest.New().VclString(`
+		backend default none;
+		sub vcl_recv {
+			return(synth(200, "OK"));
+		}
+	`).Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer varnish.Stop()
+
+	for range 3 {
+		if _, err := http.Get(varnish.URL + "/test"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	time.Sleep(100 * time.Millisecond)
+
+	val, err := varnish.CounterValue("MAIN.client_req")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if val != 3 {
+		t.Errorf("expected MAIN.client_req == 3, got %d", val)
+	}
+
+	_, err = varnish.CounterValue("MAIN.does_not_exist")
+	if err == nil {
+		t.Error("expected error for unknown counter, got nil")
+	}
 }
 
 func ExampleVarnishBuilder_Backend() {
