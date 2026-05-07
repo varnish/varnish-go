@@ -24,7 +24,7 @@
 //	}
 //
 //	enc := json.NewEncoder(os.Stdout)
-//	enc.Encode(r.Counters())
+//	enc.Encode(r.Stats)
 
 package stat
 
@@ -154,11 +154,13 @@ func flagsFromC(c C.int) Flags {
 }
 
 // Counter is a snapshot of a single Varnish statistic, mirroring VSC_point.
+// The Value field is a pointer to the counter's value in shared memory, this means it will be continuously updated.
+//
+// Important: A Counter is valid only until the next call to [StatReader.Update], which may remove it from the Stats map and invalidate its Value pointer.
 type Counter struct {
-	Name      string    `json:"name"        yaml:"name"`                      // fully-qualified name, e.g. "MAIN.cache_hit"
 	SDesc     string    `json:"description" yaml:"description"`               // short description
 	LDesc     string    `json:"longDescription"       yaml:"longDescription"` // long description
-	Value     uint64    `json:"value"       yaml:"value"`                     // current value at the time of the last Update
+	Value     *uint64   `json:"value"       yaml:"value"`                     // current value at the time of the last Update
 	Semantics Semantics `json:"semantics"   yaml:"semantics"`
 	Flags     Flags     `json:"flags"       yaml:"flags"`
 }
@@ -234,9 +236,9 @@ func (b *StatReaderBuilder) Attach() (*StatReader, error) {
 		return nil, err
 	}
 	r := &StatReader{
-		vsm:    b.vsm,
-		vsc:    b.vsc,
-		points: make(map[unsafe.Pointer]Counter),
+		vsm:   b.vsm,
+		vsc:   b.vsc,
+		Stats: make(map[string]Counter),
 	}
 	r.handle = cgo.NewHandle(r)
 	C.callVSCState(b.vsc, unsafe.Pointer(uintptr(r.handle)))
@@ -245,24 +247,21 @@ func (b *StatReaderBuilder) Attach() (*StatReader, error) {
 
 // StatReader reads VSC statistics from a Varnish instance.
 // Obtain one via [StatReaderBuilder.Attach]. Call [StatReader.Update] to
-// refresh the counter set, then query it with [StatReader.Counter],
-// [StatReader.Counters], or [StatReader.CounterValue]. Call [StatReader.Close]
-// when done.
+// refresh the counter set, then query it with [StatReader.Stats] or
+// [StatReader.Counter]. Call [StatReader.Close] when done.
+//
+// Important:StatReader.Stats is read-only and must not be modified by the caller.
 type StatReader struct {
 	vsm     *C.struct_vsm
 	vsc     *C.struct_vsc
-	points  map[unsafe.Pointer]Counter
+	Stats   map[string]Counter
 	handle  cgo.Handle
-	added   []unsafe.Pointer
-	removed []unsafe.Pointer
+	added   []string
+	removed []string
 }
 
-// Update refreshes the counter set. It detects VSM changes (child start/stop)
-// and updates the value of every known counter. It returns the opaque keys of
-// counters added and removed since the previous call; pass a key to
-// [StatReader.Counter] after an add, or use it to invalidate cached state
-// after a remove.
-func (r *StatReader) Update() (added, removed []unsafe.Pointer, err error) {
+// Update will refresh the [StatReader.Stats] map to remove deleted counters and add new ones.
+func (r *StatReader) Update() (added, removed []string, err error) {
 	r.added = r.added[:0]
 	r.removed = r.removed[:0]
 	C.VSM_Status(r.vsm)
@@ -273,32 +272,13 @@ func (r *StatReader) Update() (added, removed []unsafe.Pointer, err error) {
 	return r.added, r.removed, nil
 }
 
-// Counters returns a snapshot of all currently known counters, indexed by
-// their full name. The map is newly allocated on each call.
-func (r *StatReader) Counters() map[string]Counter {
-	m := make(map[string]Counter)
-	for _, counter := range r.points {
-		m[counter.Name] = counter
+// Counter returns the current value of the named counter (e.g. "MAIN.cache_hit"),
+// or an error if the counter is not found.
+func (r *StatReader) Counter(name string) (uint64, error) {
+	if c, ok := r.Stats[name]; ok {
+		return *c.Value, nil
 	}
-	return m
-}
-
-// Counter returns the counter with the given fully-qualified name (e.g.
-// "MAIN.cache_hit") and true, or a zero Counter and false if not found.
-func (r *StatReader) Counter(name string) (Counter, bool) {
-	for _, counter := range r.points {
-		if counter.Name == name {
-			return counter, true
-		}
-	}
-	return Counter{}, false
-}
-
-// CounterValue returns the current value of the named counter and true, or 0
-// and false if the counter is not found.
-func (r *StatReader) CounterValue(name string) (uint64, bool) {
-	counter, ok := r.Counter(name)
-	return counter.Value, ok
+	return 0, fmt.Errorf("counter %q not found", name)
 }
 
 // Close releases all resources held by the StatReader. It must be called

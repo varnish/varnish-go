@@ -15,12 +15,11 @@ func clientFromPriv(priv unsafe.Pointer) *StatReader {
 //export newPointCallback
 func newPointCallback(priv unsafe.Pointer, pt *C.struct_VSC_point) unsafe.Pointer {
 	c := clientFromPriv(priv)
-	key := unsafe.Pointer(pt)
-	c.points[key] = Counter{
-		Name:      C.GoString(pt.name),
+	key := C.GoString(pt.name)
+	c.Stats[key] = Counter{
 		SDesc:     C.GoString(pt.sdesc),
 		LDesc:     C.GoString(pt.ldesc),
-		Value:     uint64(C.VSC_Value(pt)),
+		Value:     (*uint64)(unsafe.Pointer(pt.ptr)),
 		Semantics: semanticsFromC(C.int(pt.semantics)),
 		Flags:     flagsFromC(C.int(pt.format)),
 	}
@@ -32,18 +31,13 @@ func newPointCallback(priv unsafe.Pointer, pt *C.struct_VSC_point) unsafe.Pointe
 //export delPointCallback
 func delPointCallback(priv unsafe.Pointer, pt *C.struct_VSC_point) {
 	c := clientFromPriv(priv)
-	key := unsafe.Pointer(pt)
-	delete(c.points, key)
+	key := C.GoString(pt.name)
+	delete(c.Stats, key)
 	c.removed = append(c.removed, key)
 }
 
 //export iterCallback
 func iterCallback(priv unsafe.Pointer, pt *C.struct_VSC_point) C.int {
-	c := clientFromPriv(priv)
-	key := unsafe.Pointer(pt)
-	if counter, ok := c.points[key]; ok {
-		counter.Value = uint64(C.VSC_Value(pt))
-		c.points[key] = counter
-	}
+	_, _ = priv, pt
 	return 0
 }
