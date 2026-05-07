@@ -6,24 +6,10 @@ import (
 	"net/http"
 	"testing"
 	"time"
-	"unsafe"
 
 	"github.com/varnish/varnish-go/stat"
 	"github.com/varnish/varnish-go/vtest"
 )
-
-func ExampleStatReader_Counters() {
-	r, err := stat.New().Attach()
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer r.Close()
-
-	r.Update()
-	for name, c := range r.Counters() {
-		fmt.Printf("%s %d\n", name, c.Value)
-	}
-}
 
 func ExampleStatReader_Update() {
 	r, err := stat.New().
@@ -38,8 +24,8 @@ func ExampleStatReader_Update() {
 	for {
 		time.Sleep(time.Second)
 		r.Update()
-		if val, ok := r.CounterValue("MAIN.client_req"); ok {
-			fmt.Println(val)
+		if c, ok := r.Stats["MAIN.client_req"]; ok {
+			fmt.Println(*c.Value)
 		}
 	}
 }
@@ -71,7 +57,7 @@ func newStatReader(t *testing.T, v *vtest.Varnish) *stat.StatReader {
 	return r
 }
 
-func mustUpdate(t *testing.T, r *stat.StatReader) (added, removed []unsafe.Pointer) {
+func mustUpdate(t *testing.T, r *stat.StatReader) (added, removed []string) {
 	t.Helper()
 	added, removed, err := r.Update()
 	if err != nil {
@@ -123,29 +109,6 @@ func TestUpdateStabilizes(t *testing.T) {
 	}
 }
 
-func TestCounter(t *testing.T) {
-	v := startVarnish(t)
-	defer v.Stop()
-
-	c := newStatReader(t, &v)
-	mustUpdate(t, c)
-
-	counter, _ := c.Counter("MAIN.cache_hit")
-	if counter.Name != "MAIN.cache_hit" {
-		t.Fatalf("expected MAIN.cache_hit, got %q", counter.Name)
-	}
-	if counter.Semantics != stat.SemanticsCounter {
-		t.Errorf("expected SemanticsCounter, got %v", counter.Semantics)
-	}
-	if counter.Flags != stat.FlagsInteger {
-		t.Errorf("expected FlagsInteger, got %v", counter.Flags)
-	}
-
-	if counter, ok := c.Counter("MAIN.does_not_exist"); ok {
-		t.Errorf("expected no Counter for unknown name, got %v", counter)
-	}
-}
-
 func TestCounters(t *testing.T) {
 	v := startVarnish(t)
 	defer v.Stop()
@@ -153,12 +116,21 @@ func TestCounters(t *testing.T) {
 	c := newStatReader(t, &v)
 	mustUpdate(t, c)
 
-	counters := c.Counters()
-	if len(counters) == 0 {
+	if len(c.Stats) == 0 {
 		t.Fatal("expected counters, got none")
 	}
-	if _, ok := counters["MAIN.cache_hit"]; !ok {
-		t.Error("expected MAIN.cache_hit in counters")
+	counter, ok := c.Stats["MAIN.cache_hit"]
+	if !ok {
+		t.Fatal("expected MAIN.cache_hit in Stats")
+	}
+	if counter.Semantics != stat.SemanticsCounter {
+		t.Errorf("expected SemanticsCounter, got %v", counter.Semantics)
+	}
+	if counter.Flags != stat.FlagsInteger {
+		t.Errorf("expected FlagsInteger, got %v", counter.Flags)
+	}
+	if _, ok := c.Stats["MAIN.does_not_exist"]; ok {
+		t.Error("expected no counter for unknown name")
 	}
 }
 
@@ -177,7 +149,11 @@ func TestCounterValue(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	mustUpdate(t, c)
 
-	if val, _ := c.CounterValue("MAIN.client_req"); val != 3 {
-		t.Errorf("expected MAIN.client_req != 3 after 3 requests, got %d", val)
+	val, err := c.Counter("MAIN.client_req")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if val != 3 {
+		t.Errorf("expected MAIN.client_req == 3 after 3 requests, got %d", val)
 	}
 }

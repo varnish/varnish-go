@@ -284,11 +284,11 @@ func (v *Varnish) CounterValue(name string) (uint64, error) {
 		return 0, err
 	}
 
-	val, ok := r.CounterValue(name)
+	c, ok := r.Stats[name]
 	if !ok {
 		return 0, fmt.Errorf("counter %q not found", name)
 	}
-	return val, nil
+	return *c.Value, nil
 }
 
 // Stop stops and cleans the running Varnish instance.
