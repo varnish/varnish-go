@@ -1,6 +1,7 @@
 // Reads Varnish statistics (like `varnishstat` does) from the Varnish Shared Memory (VSM)
 // using libvarnishapi's VSC (Varnish Statistics Counters) API.
-//
+package stat
+
 // Each counter has a fully-qualified name (e.g. "MAIN.cache_hit"), a current
 // value, and metadata describing its semantics and display format.
 //
@@ -25,8 +26,6 @@
 //
 //	enc := json.NewEncoder(os.Stdout)
 //	enc.Encode(r.Stats)
-
-package stat
 
 // #cgo pkg-config: varnishapi
 // #include <stdint.h>
