@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Install Varnish
+        run: |
+          curl -Ls https://packages.varnish-software.com/varnish/bootstrap-deb.sh | sudo sh
+          sudo apt-get update
+          sudo apt-get install -qq varnish varnish-dev
+        env:
+          DEBIAN_FRONTEND: noninteractive
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test
+        run: go test ./...
+
+      - name: Doc
+        run: go list ./... | xargs -I{} go doc {}
