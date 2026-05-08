@@ -52,6 +52,7 @@ func afterSettle(fn func()) {
 }
 
 func TestTagByName(t *testing.T) {
+	t.Parallel()
 	tag, err := varnishlog.TagByName("ReqURL")
 	if err != nil {
 		t.Fatalf("TagByName(ReqURL): %v", err)
@@ -67,6 +68,7 @@ func TestTagByName(t *testing.T) {
 }
 
 func TestReceivesClientRequest(t *testing.T) {
+	t.Parallel()
 	v := startVarnish(t)
 	defer v.Stop()
 
@@ -107,6 +109,7 @@ func TestReceivesClientRequest(t *testing.T) {
 }
 
 func TestTransactionFields(t *testing.T) {
+	t.Parallel()
 	v := startVarnish(t)
 	defer v.Stop()
 
@@ -152,6 +155,7 @@ func TestTransactionFields(t *testing.T) {
 }
 
 func TestQueryFilter(t *testing.T) {
+	t.Parallel()
 	v := startVarnish(t)
 	defer v.Stop()
 
