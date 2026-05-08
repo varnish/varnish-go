@@ -14,6 +14,7 @@ import (
 )
 
 func TestSynth(t *testing.T) {
+	t.Parallel()
 	// just a simple VCL with a synthetic response
 	varnish, err := vtest.New().VclString(`
                 backend default none;
@@ -43,6 +44,7 @@ func TestSynth(t *testing.T) {
 }
 
 func TestBackend(t *testing.T) {
+	t.Parallel()
 	// create a test backend
 	svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "this is my body")
@@ -74,6 +76,7 @@ func TestBackend(t *testing.T) {
 }
 
 func TestRouting(t *testing.T) {
+	t.Parallel()
 	// create a test backend
 	svrA := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("server", "A")
@@ -128,6 +131,7 @@ func TestRouting(t *testing.T) {
 }
 
 func TestAdm(t *testing.T) {
+	t.Parallel()
 
 	// just a simple VCL with a synthetic response
 	varnish, err := vtest.New().VclString(`
@@ -222,6 +226,7 @@ func ExampleVarnishBuilder() {
 }
 
 func TestCounterValue(t *testing.T) {
+	t.Parallel()
 	varnish, err := vtest.New().VclString(`
 		backend default none;
 		sub vcl_recv {

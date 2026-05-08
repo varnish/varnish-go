@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -42,6 +43,16 @@ type VarnishBuilder struct {
 
 	parameters []parameter
 	backends   []backend
+
+	noLog bool
+}
+
+// NoLog disables the background VSL record collector, making [Varnish.Records]
+// always return an empty slice. [Varnish.RecordChannel] and
+// [Varnish.TransactionChannel] still work.
+func (vb *VarnishBuilder) NoLog() *VarnishBuilder {
+	vb.noLog = true
+	return vb
 }
 
 // Varnish describes a running varnish instance, it must not be used once [Varnish.Stop] has been called.
@@ -53,6 +64,7 @@ type Varnish struct {
 	cmd  *exec.Cmd
 	name string
 	conn adm.Conn
+	logs *logState
 }
 
 // New creates a new VarnishBuilder with default settings.
@@ -187,15 +199,12 @@ func (vb *VarnishBuilder) Start() (varnish Varnish, err error) {
 			return
 		}
 	} else {
-		backendString := ""
+		var sb strings.Builder
 		for _, b := range vb.backends {
-			backendString += fmt.Sprintf(`backend %s {
-	.host = "%s";
-	.port = "%s";
-	.host_header = "%s";
-}
-`, b.name, b.host, b.port, b.host)
+			fmt.Fprintf(&sb, "backend %s {\n\t.host = %q;\n\t.port = %q;\n\t.host_header = %q;\n}\n",
+				b.name, b.host, b.port, b.host)
 		}
+		backendString := sb.String()
 
 		vcl := fmt.Sprintf("%s%s%s", vb.vclVersion, backendString, vb.vclString)
 		_, err = varnish.Adm("vcl.inline", "vcl1 << XXYYZZ\n", vcl, "\nXXYYZZ")
@@ -216,6 +225,11 @@ func (vb *VarnishBuilder) Start() (varnish Varnish, err error) {
 	err = varnish.WaitRunning()
 	if err != nil {
 		return
+	}
+
+	varnish.logs = newLogState()
+	if !vb.noLog {
+		varnish.logs.startCollector(name)
 	}
 
 	return
@@ -294,6 +308,9 @@ func (v *Varnish) CounterValue(name string) (uint64, error) {
 // Stop stops and cleans the running Varnish instance.
 // The caller must call this to avoid littered file systems and forever-running processes.
 func (v *Varnish) Stop() {
+	if v.logs != nil {
+		v.logs.stop()
+	}
 	_, _ = v.Adm("stop")
 	_ = v.conn.Close()
 
