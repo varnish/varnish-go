@@ -1,6 +1,4 @@
-// Package version reports the installed Varnish edition, version string, and
-// commit hash by reading the VMOD_ABI_Version define from vmod_abi.h at
-// compile time.
+// Reports the installed Varnish edition
 package version
 
 // #cgo pkg-config: varnishapi
