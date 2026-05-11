@@ -2,7 +2,6 @@ name: CI
 
 on:
   push:
-  pull_request:
 
 jobs:
   ci:
@@ -20,7 +19,7 @@ jobs:
             packages: varnish-plus varnish-plus-dev
             test_tags: -tags varnish_plus
 
-    name: ci (${{ matrix.name }})
+    name: Build and test against ${{ matrix.name }}
 
     steps:
       - uses: actions/checkout@v6
