@@ -29,7 +29,9 @@ package stat
 
 // #cgo pkg-config: varnishapi
 // #include <stdint.h>
+// #include <stdio.h>
 // #include <stdlib.h>
+// #include <vdef.h>
 // #include <vapi/vsm.h>
 // #include <vapi/vsc.h>
 //

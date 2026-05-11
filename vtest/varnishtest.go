@@ -49,7 +49,7 @@ type VarnishBuilder struct {
 
 // NoLog disables the background VSL record collector, making [Varnish.Records]
 // always return an empty slice. [Varnish.RecordChannel] and
-// [Varnish.TransactionChannel] still work.
+// [Varnish.TransactionChannel] will still work.
 func (vb *VarnishBuilder) NoLog() *VarnishBuilder {
 	vb.noLog = true
 	return vb

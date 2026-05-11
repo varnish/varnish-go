@@ -1,6 +1,8 @@
 package stat
 
 // #include <stdint.h>
+// #include <stdio.h>
+// #include <vdef.h>
 // #include <vapi/vsc.h>
 import "C"
 import (

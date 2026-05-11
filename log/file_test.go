@@ -8,6 +8,7 @@ import (
 	"time"
 
 	varnishlog "github.com/varnish/varnish-go/log"
+	"github.com/varnish/varnish-go/version"
 )
 
 // testBinPath returns the absolute path to the test VSL binary log fixture.
@@ -16,8 +17,16 @@ func testBinPath() string {
 	return filepath.Join(filepath.Dir(self), "testdata", "test1_log.bin")
 }
 
+func skipIfEnterprise(t *testing.T) {
+	t.Helper()
+	if version.IsEnterprise() {
+		t.Skip("test1_log.bin not compatible with Varnish Plus")
+	}
+}
+
 func newFileReader(t *testing.T, grouping varnishlog.Grouping) *varnishlog.LogReader {
 	t.Helper()
+	skipIfEnterprise(t)
 	r, err := varnishlog.New().
 		SetGrouping(grouping).
 		SetFile(testBinPath()).
@@ -130,6 +139,7 @@ func TestFileRunReturnsNilOnEOF(t *testing.T) {
 // only transactions matching the query should be delivered.
 func TestFileQueryFilter(t *testing.T) {
 	t.Parallel()
+	skipIfEnterprise(t)
 	r, err := varnishlog.New().
 		SetGrouping(varnishlog.GroupingRequest).
 		SetQuery(`ReqURL eq "/"`).
