@@ -2,25 +2,38 @@ name: CI
 
 on:
   push:
-  pull_request:
 
 jobs:
   ci:
     runs-on: ubuntu-latest
 
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: varnish
+            bootstrap: curl -Ls https://packages.varnish-software.com/varnish/bootstrap-deb.sh | sudo bash
+            packages: varnish varnish-dev
+          - name: varnish-plus
+            bootstrap: curl -s https://packagecloud.io/install/repositories/varnishplus/60-enterprise/script.deb.sh | sudo INSTALL= bash
+            packages: varnish-plus varnish-plus-dev
+            test_tags: -tags varnish_plus
+
+    name: Build and test against ${{ matrix.name }}
+
     steps:
       - uses: actions/checkout@v6
 
       - name: Install Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: stable
 
       - name: Install Varnish
         run: |
-          curl -Ls https://packages.varnish-software.com/varnish/bootstrap-deb.sh | sudo sh
+          ${{ matrix.bootstrap }}
           sudo apt-get update
-          sudo apt-get install -qq varnish varnish-dev
+          sudo apt-get install -qq ${{ matrix.packages }}
         env:
           DEBIAN_FRONTEND: noninteractive
 
@@ -28,7 +41,7 @@ jobs:
         run: go build ./...
 
       - name: Test
-        run: go test ./...
+        run: go test ${{ matrix.test_tags }} ./...
 
       - name: Doc
         run: go list ./... | xargs -I{} go doc {}
