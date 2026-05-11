@@ -4,15 +4,23 @@ package log
 // #include <stdio.h>
 // #include <vapi/vsl.h>
 //
-// static struct VSL_transaction *transAt(struct VSL_transaction * const trans[], int i) {
+// static inline struct VSL_transaction *transAt(struct VSL_transaction * const trans[], int i) {
 //     return trans[i];
 // }
 //
-// static int recTag(const uint32_t *ptr) { return (int)VSL_TAG(ptr); }
-// static uint64_t recID(const uint32_t *ptr) { return (uint64_t)VSL_ID(ptr); }
-// static const char* recData(const uint32_t *ptr) { return VSL_CDATA(ptr); }
-// static int recClient(const uint32_t *ptr) { return VSL_CLIENT(ptr) != 0; }
-// static int recBackend(const uint32_t *ptr) { return VSL_BACKEND(ptr) != 0; }
+// static inline int recTag(const uint32_t *ptr) { return (int)VSL_TAG(ptr); }
+// static inline uint64_t recID(const uint32_t *ptr) { return (uint64_t)VSL_ID(ptr); }
+// static inline const char* recData(const uint32_t *ptr) { return VSL_CDATA(ptr); }
+// static inline int recClient(const uint32_t *ptr) { return VSL_CLIENT(ptr) != 0; }
+// static inline int recBackend(const uint32_t *ptr) { return VSL_BACKEND(ptr) != 0; }
+//
+// // Varnish Plus may provide transactions with a non-NULL but uninitialized
+// // cursor (priv_tbl == NULL). Calling VSL_Next on such a cursor triggers an
+// // internal assert. Return vsl_end instead so callers can treat it uniformly.
+// static inline int nextRecord(const struct VSL_cursor *c) {
+//     if (c == NULL || c->priv_tbl == NULL) return vsl_end;
+//     return (int)VSL_Next(c);
+// }
 import "C"
 import (
 	"runtime/cgo"
@@ -35,7 +43,14 @@ func dispatchCallback(_ *C.struct_VSL_data, ctrans **C.struct_VSL_transaction, p
 		}
 
 		var records []Record
-		for t.c != nil && C.VSL_Next(t.c) == C.vsl_more {
+		for {
+			status := C.nextRecord(t.c)
+			if status == C.vsl_end {
+				break
+			}
+			if status < 0 {
+				return status
+			}
 			ptr := t.c.rec.ptr
 			records = append(records, Record{
 				Tag:       Tag(C.recTag(ptr)),
