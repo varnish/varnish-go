@@ -35,7 +35,7 @@ func dispatchCallback(_ *C.struct_VSL_data, ctrans **C.struct_VSL_transaction, p
 		}
 
 		var records []Record
-		for C.VSL_Next(t.c) == C.vsl_more {
+		for t.c != nil && C.VSL_Next(t.c) == C.vsl_more {
 			ptr := t.c.rec.ptr
 			records = append(records, Record{
 				Tag:       Tag(C.recTag(ptr)),
