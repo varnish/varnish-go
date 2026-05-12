@@ -1,58 +1,48 @@
 # Go SDK for Varnish
 
-**Important**: this is a work-in-progress. There will be bugs, if you find one in the wild or if you have a feature request, please do open [an issue](https://github.com/varnish/varnish-go/issues) for it, or even better, open a [pull request](https://github.com/varnish/varnish-go/pulls).
+**Important**: this is a work-in-progress. Bugs and feature requests welcome via [issues](https://github.com/varnish/varnish-go/issues) or [pull requests](https://github.com/varnish/varnish-go/pulls).
 
-The primary goal of this project is to provide an alternative to the [varnishtest](https://varnish-cache.org/docs/trunk/reference/varnishtest.html) tool.
-The original, varnish-bundled too is invaluable for testing your VCL logic and [Varnish](https://varnish-cache.org/) in general (the [project itself](https://github.com/varnishcache/varnish-cache/tree/master/bin/varnishtest/tests) uses it for hundreds of tests in CI) but it will require you to learn the [Domain Specific Language](https://varnish-cache.org/docs/trunk/reference/vtc.html).
+All packages require [libvarnishapi](https://packagecloud.io/varnishplus) (open-source or Enterprise) and CGo.
 
-Offering a `go` SDK for it will hopefully accelerate your velocity and broaden your code-coverage of you VCL.
+## Packages
 
-# Installation
+### [`vtest`](https://pkg.go.dev/github.com/varnish/varnish-go/vtest) — spawn Varnish instances for testing
 
-As with all `go` packages:
+Go-native alternative to the [`varnishtest`](https://varnish-cache.org/docs/trunk/reference/varnishtest.html) tool.
+Spin up a real Varnish process, make HTTP requests against it, and inspect VSL logs — all from regular Go tests.
 
-``` shell
+```shell
+go get github.com/varnish/varnish-go/vtest
+```
+
+### [`log`](https://pkg.go.dev/github.com/varnish/varnish-go/log) — stream VSL transactions
+
+Read and filter [Varnish Shared Log](https://varnish-cache.org/docs/trunk/reference/vsl.html) transactions from a live instance or a binary file, equivalent to `varnishlog`.
+
+```shell
+go get github.com/varnish/varnish-go/log
+```
+
+### [`stat`](https://pkg.go.dev/github.com/varnish/varnish-go/stat) — read statistics counters
+
+Poll VSC counters from Varnish Shared Memory, equivalent to `varnishstat`.
+
+```shell
+go get github.com/varnish/varnish-go/stat
+```
+
+### [`adm`](https://pkg.go.dev/github.com/varnish/varnish-go/adm) — admin socket client
+
+Send CLI commands to a running Varnish instance, equivalent to `varnishadm`.
+
+```shell
 go get github.com/varnish/varnish-go/adm
 ```
 
-# Example
+### [`version`](https://pkg.go.dev/github.com/varnish/varnish-go/version) — installed Varnish version
 
-``` go
-package main
+Reports the installed Varnish edition (open-source or Enterprise), version string, and commit hash, resolved at compile time from `vmod_abi.h`.
 
-import (
-	"fmt"
-	"io"
-	"net/http"
-	"net/http/httptest"
-
-	"github.com/varnish/varnish-go/vtest"
-)
-
-func main() {
-	// create a test backend
-	svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "this is my body")
-	}))                                                                                                                                                                           
-
-	// add the backend definition to the loaded VCL                                                                                                                                                       
-	varnish, err := vtest.New().Backend("svr", svr.URL).Start()
-	if err != nil {
-		panic(err)
-	}
-	defer varnish.Stop()
-
-	resp, err := http.Get(varnish.URL)                                                                                                                             
-	if err != nil {
-		panic(err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Printf("response body: %s\n", string(body))
-}
+```shell
+go get github.com/varnish/varnish-go/version
 ```
