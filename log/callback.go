@@ -41,7 +41,7 @@ func dispatchCallback(_ *C.struct_VSL_data, ctrans **C.struct_VSL_transaction, p
 				break
 			}
 			if status < 0 {
-				return status
+				return C.int(status)
 			}
 			ptr := t.c.rec.ptr
 			records = append(records, Record{
