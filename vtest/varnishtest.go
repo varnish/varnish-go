@@ -285,24 +285,143 @@ func (v *Varnish) Adm(args ...string) (string, error) {
 	return v.conn.Ask(args...)
 }
 
-// CounterValue returns the current value of the named counter (e.g. "MAIN.cache_hit"),
-// or an error if the counter is not found or the stat reader fails.
-func (v *Varnish) CounterValue(name string) (uint64, error) {
-	r, err := stat.New().SetName(v.name).Attach()
+// CounterChecker is a fluent builder for polling a Varnish stat counter until a condition is met.
+// Created via [Varnish.Counter]; configure with TryFor/TryEvery/MustExist, then call a terminal method.
+type CounterChecker struct {
+	v         *Varnish
+	name      string
+	tryFor    time.Duration
+	tryEvery  time.Duration
+	mustExist bool
+}
+
+// Counter returns a CounterChecker for the named counter (e.g. "MAIN.cache_hit").
+func (v *Varnish) Counter(name string) *CounterChecker {
+	return &CounterChecker{
+		v:        v,
+		name:     name,
+		tryFor:   5 * time.Second,
+		tryEvery: 100 * time.Millisecond,
+	}
+}
+
+// TryFor sets the maximum duration to retry before failing. Default: 5s.
+func (c *CounterChecker) TryFor(d time.Duration) *CounterChecker {
+	c.tryFor = d
+	return c
+}
+
+// TryEvery sets the polling interval. Default: 100ms.
+func (c *CounterChecker) TryEvery(d time.Duration) *CounterChecker {
+	c.tryEvery = d
+	return c
+}
+
+// MustExist causes any terminal check to fail immediately if the counter is not found,
+// rather than retrying until TryFor expires.
+func (c *CounterChecker) MustExist() *CounterChecker {
+	c.mustExist = true
+	return c
+}
+
+func (c *CounterChecker) fetch() (uint64, bool, error) {
+	r, err := stat.New().SetName(c.v.name).Attach()
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
 	defer r.Close()
-
 	if _, _, err := r.Update(); err != nil {
-		return 0, err
+		return 0, false, err
 	}
-
-	c, ok := r.Stats[name]
+	s, ok := r.Stats[c.name]
 	if !ok {
-		return 0, fmt.Errorf("counter %q not found", name)
+		return 0, false, nil
 	}
-	return *c.Value, nil
+	return *s.Value, true, nil
+}
+
+func (c *CounterChecker) wait(f func(uint64) bool) error {
+	deadline := time.Now().Add(c.tryFor)
+	var lastVal uint64
+	everFound := false
+	for time.Now().Before(deadline) {
+		val, found, err := c.fetch()
+		if err != nil {
+			return err
+		}
+		if !found {
+			if c.mustExist {
+				return fmt.Errorf("counter %q not found", c.name)
+			}
+			time.Sleep(c.tryEvery)
+			continue
+		}
+		everFound = true
+		lastVal = val
+		if f(val) {
+			return nil
+		}
+		time.Sleep(c.tryEvery)
+	}
+	if !everFound {
+		return fmt.Errorf("counter %q not found after %s", c.name, c.tryFor)
+	}
+	return fmt.Errorf("counter %q = %d did not satisfy condition after %s", c.name, lastVal, c.tryFor)
+}
+
+// Value waits for the counter to appear and returns its current value.
+func (c *CounterChecker) Value() (uint64, error) {
+	deadline := time.Now().Add(c.tryFor)
+	for time.Now().Before(deadline) {
+		val, found, err := c.fetch()
+		if err != nil {
+			return 0, err
+		}
+		if !found {
+			if c.mustExist {
+				return 0, fmt.Errorf("counter %q not found", c.name)
+			}
+			time.Sleep(c.tryEvery)
+			continue
+		}
+		return val, nil
+	}
+	return 0, fmt.Errorf("counter %q not found after %s", c.name, c.tryFor)
+}
+
+// Equals waits until the counter value equals n.
+func (c *CounterChecker) Equals(n uint64) error {
+	return c.wait(func(v uint64) bool { return v == n })
+}
+
+// NotEquals waits until the counter value does not equal n.
+func (c *CounterChecker) NotEquals(n uint64) error {
+	return c.wait(func(v uint64) bool { return v != n })
+}
+
+// AtLeast waits until the counter value is >= n.
+func (c *CounterChecker) AtLeast(n uint64) error {
+	return c.wait(func(v uint64) bool { return v >= n })
+}
+
+// AtMost waits until the counter value is <= n.
+func (c *CounterChecker) AtMost(n uint64) error {
+	return c.wait(func(v uint64) bool { return v <= n })
+}
+
+// GreaterThan waits until the counter value is > n.
+func (c *CounterChecker) GreaterThan(n uint64) error {
+	return c.wait(func(v uint64) bool { return v > n })
+}
+
+// LessThan waits until the counter value is < n.
+func (c *CounterChecker) LessThan(n uint64) error {
+	return c.wait(func(v uint64) bool { return v < n })
+}
+
+// WithTestFunction waits until f returns true for the counter value.
+func (c *CounterChecker) WithTestFunction(f func(uint64) bool) error {
+	return c.wait(f)
 }
 
 // Stop stops and cleans the running Varnish instance.
