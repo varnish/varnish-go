@@ -8,6 +8,7 @@ package vtest
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/url"
@@ -41,18 +42,47 @@ type VarnishBuilder struct {
 	vclString  string
 	vclVersion string
 
-	parameters []parameter
-	backends   []backend
+	parameters  []parameter
+	backends    []backend
+	sysLogChans []chan string
 
-	noLog bool
+	noRecordLogs bool
+	noSysLogs    bool
+
+	syslogs *syslogState
 }
 
-// NoLog disables the background VSL record collector, making [Varnish.Records]
+// NoRecordLogs disables the background VSL record collector, making [Varnish.Records]
 // always return an empty slice. [Varnish.RecordChannel] and
 // [Varnish.TransactionChannel] will still work.
-func (vb *VarnishBuilder) NoLog() *VarnishBuilder {
-	vb.noLog = true
+func (vb *VarnishBuilder) NoRecordLogs() *VarnishBuilder {
+	vb.noRecordLogs = true
 	return vb
+}
+
+// NoSysLogs disables accumulation of stdout/stderr lines for [Varnish.SysLog].
+// [VarnishBuilder.SysLogChannel] and [Varnish.SysLogChannel] continue to work.
+func (vb *VarnishBuilder) NoSysLogs() *VarnishBuilder {
+	vb.noSysLogs = true
+	return vb
+}
+
+// SysLogChannel returns a channel that will receive every stdout/stderr line
+// emitted by the Varnish process, starting from startup. The channel is
+// closed when the instance is stopped. Must be called before [VarnishBuilder.Start].
+func (vb *VarnishBuilder) SysLogChannel() <-chan string {
+	ch := make(chan string, 64)
+	vb.sysLogChans = append(vb.sysLogChans, ch)
+	return ch
+}
+
+// SysLogs returns a snapshot of stdout/stderr lines collected during a failed
+// [VarnishBuilder.Start]. Returns nil if Start has not been called or succeeded.
+func (vb *VarnishBuilder) SysLogs() []string {
+	if vb.syslogs == nil {
+		return nil
+	}
+	return vb.syslogs.snapshot()
 }
 
 // Varnish describes a running varnish instance, it must not be used once [Varnish.Stop] has been called.
@@ -61,10 +91,11 @@ type Varnish struct {
 	// Varnish is started with a random port, discovered after startup.
 	URL string
 
-	cmd  *exec.Cmd
-	name string
-	conn adm.Conn
-	logs *logState
+	cmd     *exec.Cmd
+	name    string
+	conn    adm.Conn
+	logs    *logState
+	syslogs *syslogState
 }
 
 // New creates a new VarnishBuilder with default settings.
@@ -175,12 +206,20 @@ func (vb *VarnishBuilder) Start() (varnish Varnish, err error) {
 		args = append(args, p.name, p.value)
 	}
 
+	pr, pw := io.Pipe()
+
 	cmd := exec.Command("varnishd", args...)
+	cmd.Stdout = pw
+	cmd.Stderr = pw
 
 	err = cmd.Start()
 	if err != nil {
 		return
 	}
+
+	ss := newSyslogState(true, pw)
+	ss.start(pr, cmd.Wait)
+	vb.syslogs = ss
 
 	conn, err := adm.Accept(sock, filepath.Join(name, "_.secret"))
 	if err != nil {
@@ -228,9 +267,13 @@ func (vb *VarnishBuilder) Start() (varnish Varnish, err error) {
 	}
 
 	varnish.logs = newLogState()
-	if !vb.noLog {
+	if !vb.noRecordLogs {
 		varnish.logs.startCollector(name)
 	}
+
+	ss.transfer(!vb.noSysLogs, vb.sysLogChans)
+	varnish.syslogs = ss
+	vb.syslogs = nil
 
 	return
 }
@@ -435,6 +478,10 @@ func (v *Varnish) Stop() {
 
 	if err := v.cmd.Process.Kill(); err != nil {
 		log.Printf("failed to kill process: %s\n", err)
+	}
+
+	if v.syslogs != nil {
+		v.syslogs.stop()
 	}
 
 	_ = os.RemoveAll(v.name)

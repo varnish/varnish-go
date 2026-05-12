@@ -264,10 +264,10 @@ func TestTransactionChannelClosedOnStop(t *testing.T) {
 	}
 }
 
-// TestNoLogRecordsEmpty verifies that Records() returns nil when NoLog is set.
-func TestNoLogRecordsEmpty(t *testing.T) {
+// TestNoRecordLogsRecordsEmpty verifies that Records() returns nil when NoLog is set.
+func TestNoRecordLogsRecordsEmpty(t *testing.T) {
 	t.Parallel()
-	v, err := vtest.New().NoLog().VclString(`
+	v, err := vtest.New().NoRecordLogs().VclString(`
 		backend default none;
 		sub vcl_recv { return(synth(200, "OK")); }
 	`).Start()
@@ -286,11 +286,11 @@ func TestNoLogRecordsEmpty(t *testing.T) {
 	}
 }
 
-// TestNoLogChannelsWork verifies that RecordChannel and TransactionChannel
+// TestNoRecordLogsChannelsWork verifies that RecordChannel and TransactionChannel
 // still function when NoLog is set (only the records collector is disabled).
-func TestNoLogChannelsWork(t *testing.T) {
+func TestNoRecordLogsChannelsWork(t *testing.T) {
 	t.Parallel()
-	v, err := vtest.New().NoLog().VclString(`
+	v, err := vtest.New().NoRecordLogs().VclString(`
 		backend default none;
 		sub vcl_recv { return(synth(200, "OK")); }
 	`).Start()
