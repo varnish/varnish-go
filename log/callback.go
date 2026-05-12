@@ -13,14 +13,6 @@ package log
 // static inline const char* recData(const uint32_t *ptr) { return VSL_CDATA(ptr); }
 // static inline int recClient(const uint32_t *ptr) { return VSL_CLIENT(ptr) != 0; }
 // static inline int recBackend(const uint32_t *ptr) { return VSL_BACKEND(ptr) != 0; }
-//
-// // Varnish Plus may provide transactions with a non-NULL but uninitialized
-// // cursor (priv_tbl == NULL). Calling VSL_Next on such a cursor triggers an
-// // internal assert. Return vsl_end instead so callers can treat it uniformly.
-// static inline int nextRecord(const struct VSL_cursor *c) {
-//     if (c == NULL || c->priv_tbl == NULL) return vsl_end;
-//     return (int)VSL_Next(c);
-// }
 import "C"
 import (
 	"runtime/cgo"
@@ -44,7 +36,7 @@ func dispatchCallback(_ *C.struct_VSL_data, ctrans **C.struct_VSL_transaction, p
 
 		var records []Record
 		for {
-			status := C.nextRecord(t.c)
+			status := C.VSL_Next(t.c)
 			if status == C.vsl_end {
 				break
 			}
