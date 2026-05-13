@@ -50,6 +50,8 @@ type VarnishBuilder struct {
 	noRecordLogs bool
 	noSysLogs    bool
 
+	licensePath string
+
 	syslogs *syslogState
 }
 
@@ -65,6 +67,13 @@ func (vb *VarnishBuilder) NoRecordLogs() *VarnishBuilder {
 // [VarnishBuilder.SysLogChannel] and [Varnish.SysLogChannel] continue to work.
 func (vb *VarnishBuilder) NoSysLogs() *VarnishBuilder {
 	vb.noSysLogs = true
+	return vb
+}
+
+// SetLicensePath sets the path to the Varnish license file, passed to varnishd
+// as the VARNISH_LICENSE environment variable.
+func (vb *VarnishBuilder) SetLicensePath(path string) *VarnishBuilder {
+	vb.licensePath = path
 	return vb
 }
 
@@ -212,6 +221,12 @@ func (vb *VarnishBuilder) Start() (varnish Varnish, err error) {
 	cmd := exec.Command("varnishd", args...)
 	cmd.Stdout = pw
 	cmd.Stderr = pw
+	switch {
+	case vb.licensePath != "":
+		cmd.Env = append(os.Environ(), "VARNISH_LICENSE="+vb.licensePath)
+	case os.Getenv("VARNISH_LICENSE") == "":
+		cmd.Env = append(os.Environ(), "VARNISH_LICENSE=/usr/share/varnish-plus/vtc-license.dat")
+	}
 
 	err = cmd.Start()
 	if err != nil {
