@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.0.8 (unreleased)
+## v0.0.8 2026-25-13
 
 - **New**: `vtest` — `CounterChecker.AssertEquals(t, n)` calls `t.Fatal` if the counter doesn't reach `n`
 - **Fix**: `vtest` — example and test cleanup for `AssertStart` and `CounterChecker`
