@@ -17,12 +17,14 @@ type syslogState struct {
 	closeOnce sync.Once
 	pw        *io.PipeWriter
 	wg        sync.WaitGroup
+	exited    chan struct{} // closed when the process exits
 }
 
 func newSyslogState(collect bool, pw *io.PipeWriter) *syslogState {
 	return &syslogState{
 		collect: collect,
 		pw:      pw,
+		exited:  make(chan struct{}),
 	}
 }
 
@@ -82,6 +84,7 @@ func (ss *syslogState) start(pr *io.PipeReader, wait func() error) {
 	go func() {
 		defer ss.wg.Done()
 		_ = wait()
+		close(ss.exited)
 		ss.closePipe()
 	}()
 }
@@ -111,9 +114,9 @@ func (ss *syslogState) stop() {
 	ss.wg.Wait()
 }
 
-// SysLog returns a snapshot of all stdout/stderr lines emitted by the Varnish
+// SysLogs returns a snapshot of all stdout/stderr lines emitted by the Varnish
 // process since it was started. Safe to call concurrently or after Stop.
-func (v *Varnish) SysLog() []string {
+func (v *Varnish) SysLogs() []string {
 	if v.syslogs == nil {
 		return nil
 	}

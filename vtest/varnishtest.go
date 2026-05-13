@@ -16,6 +16,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/google/uuid"
@@ -221,9 +222,29 @@ func (vb *VarnishBuilder) Start() (varnish Varnish, err error) {
 	ss.start(pr, cmd.Wait)
 	vb.syslogs = ss
 
-	conn, err := adm.Accept(sock, filepath.Join(name, "_.secret"))
-	if err != nil {
-		return
+	var conn adm.Conn
+	{
+		type acceptResult struct {
+			conn adm.Conn
+			err  error
+		}
+		ch := make(chan acceptResult, 1)
+		go func() {
+			c, e := adm.Accept(sock, filepath.Join(name, "_.secret"))
+			ch <- acceptResult{c, e}
+		}()
+		select {
+		case res := <-ch:
+			if res.err != nil {
+				err = res.err
+				return
+			}
+			conn = res.conn
+		case <-ss.exited:
+			sock.Close()
+			err = fmt.Errorf("varnishd exited before connecting to management socket: check SysLogs for details")
+			return
+		}
 	}
 
 	varnish = Varnish{
@@ -276,6 +297,17 @@ func (vb *VarnishBuilder) Start() (varnish Varnish, err error) {
 	vb.syslogs = nil
 
 	return
+}
+
+// AssertStart calls [VarnishBuilder.Start] and calls t.Fatal if it fails.
+// SysLogs output is included in the error message to aid debugging.
+func (vb *VarnishBuilder) AssertStart(t *testing.T) Varnish {
+	t.Helper()
+	v, err := vb.Start()
+	if err != nil {
+		t.Fatalf("vtest: Start: %v\n%s", err, strings.Join(vb.SysLogs(), "\n"))
+	}
+	return v
 }
 
 // Name returns the workdir path.
