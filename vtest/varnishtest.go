@@ -318,6 +318,17 @@ func (vb *VarnishBuilder) Start() (varnish Varnish, err error) {
 
 // AssertStart calls [VarnishBuilder.Start] and calls t.Fatal if it fails.
 // SysLogs output is included in the error message to aid debugging.
+//
+// To verify that bad VCL causes a failure:
+//
+//	// t is a *testing.T passed to the test function
+//	varnish := vtest.New().VclString(`
+//		backend default none;
+//		sub vcl_recv {
+//			return(invalid_action);
+//		}
+//	`).AssertStart(t)
+//	defer varnish.Stop()
 func (vb *VarnishBuilder) AssertStart(t *testing.T) Varnish {
 	t.Helper()
 	v, err := vb.Start()

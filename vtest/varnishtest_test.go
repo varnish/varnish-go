@@ -177,41 +177,30 @@ func TestAdm(t *testing.T) {
 func TestVarnishBuilder_AssertStart(t *testing.T) {
 	varnish := vtest.New().VclString(`
                 backend default none;
+
+				sub vcl_recv {
+					return(synth(200, "OK"));
+				}
         `).AssertStart(t)
 	defer varnish.Stop()
 }
 
-func ExampleVarnishBuilder_AssertStart() {
-	t := &testing.T{}
-	varnish := vtest.New().VclString(`
-                backend default none;
-        `).AssertStart(t)
-	defer varnish.Stop()
-	// Output:
-	// main_test.go:31: vtest: Start: command: vcl.inline vcl1 << XXYYZZ
-	//
-	//                  vcl 4.1;
-	//
-	//                  backend default none;
-	//
-	//                  sub vcl_recv {
-	//                          return(synxth(200, "OK"));
-	//                  }
-	//
-	// 			        XXYYZZ
-	//  failed with 106 status and message message:
-	//  Message from VCC-compiler:
-	//  Expected return action name.
-	//        ('<vcl.inline>' Line 7 Pos 32)
-	//                                return(synxth(200, "OK"));
-	//        -------------------------------######-------------
-	//
-	//        Running VCC-compiler failed, exited with 2
-	//        VCL compilation failed
-	//
-	//  Debug: Version: varnish-9.0.0 revision ce1b315b0c35477c666e4c8d8e1c9174df87eb61
-	//  Debug: Platform: Linux,7.0.5-arch1-1,x86_64,-jnone,-sdefault,-sdefault,-hcritbit
+func TestVarnishBuilder_Start_BadVCL(t *testing.T) {
+	t.Parallel()
+	_, err := vtest.New().VclString(`
+		backend default none;
+		sub vcl_recv {
+			return(invalid_action);
+		}
+	`).Start()
+	if err == nil {
+		t.Fatal("expected error for bad VCL, got nil")
+	}
+	if !strings.Contains(err.Error(), "VCL compilation failed") {
+		t.Errorf("expected compilation error in message, got: %v", err)
+	}
 }
+
 
 // Build a one-shot Varnish server, feed it a VCL and print the
 // status of a GET request
