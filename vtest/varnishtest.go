@@ -486,6 +486,14 @@ func (c *CounterChecker) Equals(n uint64) error {
 	return c.wait(func(v uint64) bool { return v == n })
 }
 
+// AssertEquals calls [CounterChecker.Equals] and calls t.Fatal if it fails.
+func (c *CounterChecker) AssertEquals(t *testing.T, n uint64) {
+	t.Helper()
+	if err := c.Equals(n); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // NotEquals waits until the counter value does not equal n.
 func (c *CounterChecker) NotEquals(n uint64) error {
 	return c.wait(func(v uint64) bool { return v != n })
