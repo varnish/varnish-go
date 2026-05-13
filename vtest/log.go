@@ -29,7 +29,7 @@ func newLogState() *logState {
 
 // startCollector attaches a GroupingRaw reader with backlog enabled and starts
 // the background goroutine that accumulates records for Records(). Skipped when
-// NoLog is set on the builder.
+// NoRecordLogs is set on the builder.
 func (ls *logState) startCollector(name string) {
 	r, err := vsl.New().
 		SetName(name).
