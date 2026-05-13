@@ -34,7 +34,7 @@ type backend struct {
 	name string
 	host string
 	port string
-	ssl  bool
+	tls  bool
 }
 
 // VarnishBuilder is a configuration object collecting options before the actual Varnish instance is started.
@@ -58,13 +58,15 @@ type VarnishBuilder struct {
 // NoRecordLogs disables the background VSL record collector, making [Varnish.Records]
 // always return an empty slice. [Varnish.RecordChannel] and
 // [Varnish.TransactionChannel] will still work.
+// This is useful to reduce resource usage for longer running tests which can use [Varnish.RecordChannel] instead.
 func (vb *VarnishBuilder) NoRecordLogs() *VarnishBuilder {
 	vb.noRecordLogs = true
 	return vb
 }
 
 // NoSysLogs disables accumulation of stdout/stderr lines for [Varnish.SysLog].
-// [VarnishBuilder.SysLogChannel] and [Varnish.SysLogChannel] continue to work.
+// [VarnishBuilder.SysLogChannel] and [VarnishBuilder.SysLogChannel] continue to work.
+// This is useful to reduce resource usage for longer running tests which can use channels instead.
 func (vb *VarnishBuilder) NoSysLogs() *VarnishBuilder {
 	vb.noSysLogs = true
 	return vb
@@ -79,7 +81,7 @@ func (vb *VarnishBuilder) SetLicensePath(path string) *VarnishBuilder {
 
 // SysLogChannel returns a channel that will receive every stdout/stderr line
 // emitted by the Varnish process, starting from startup. The channel is
-// closed when the instance is stopped. Must be called before [VarnishBuilder.Start].
+// closed when the instance is stopped. Must be called before [VarnishBuilder.Start], but you can also use [Varnish.SysLogChannel] after the start.
 func (vb *VarnishBuilder) SysLogChannel() <-chan string {
 	ch := make(chan string, 64)
 	vb.sysLogChans = append(vb.sysLogChans, ch)
@@ -87,7 +89,7 @@ func (vb *VarnishBuilder) SysLogChannel() <-chan string {
 }
 
 // SysLogs returns a snapshot of stdout/stderr lines collected during a failed
-// [VarnishBuilder.Start]. Returns nil if Start has not been called or succeeded.
+// [VarnishBuilder.Start]. Returns nil if [VarnishBuilder.Start] has not been called or succeeded.
 func (vb *VarnishBuilder) SysLogs() []string {
 	if vb.syslogs == nil {
 		return nil
@@ -164,11 +166,11 @@ func (vb *VarnishBuilder) Backend(name string, urlRaw string) *VarnishBuilder {
 		panic(err)
 	}
 
-	ssl := false
+	tls := false
 	port := u.Port()
 
 	if u.Scheme == "https" {
-		ssl = true
+		tls = true
 		if port == "" {
 			port = "443"
 		}
@@ -182,7 +184,7 @@ func (vb *VarnishBuilder) Backend(name string, urlRaw string) *VarnishBuilder {
 		name: name,
 		host: host,
 		port: port,
-		ssl:  ssl,
+		tls:  tls,
 	})
 	return vb
 }

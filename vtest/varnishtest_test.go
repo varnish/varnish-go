@@ -174,6 +174,45 @@ func TestAdm(t *testing.T) {
 	}
 }
 
+func TestVarnishBuilder_AssertStart(t *testing.T) {
+	varnish := vtest.New().VclString(`
+                backend default none;
+        `).AssertStart(t)
+	defer varnish.Stop()
+}
+
+func ExampleVarnishBuilder_AssertStart() {
+	t := &testing.T{}
+	varnish := vtest.New().VclString(`
+                backend default none;
+        `).AssertStart(t)
+	defer varnish.Stop()
+	// Output:
+	// main_test.go:31: vtest: Start: command: vcl.inline vcl1 << XXYYZZ
+	//
+	//                  vcl 4.1;
+	//
+	//                  backend default none;
+	//
+	//                  sub vcl_recv {
+	//                          return(synxth(200, "OK"));
+	//                  }
+	//
+	// 			        XXYYZZ
+	//  failed with 106 status and message message:
+	//  Message from VCC-compiler:
+	//  Expected return action name.
+	//        ('<vcl.inline>' Line 7 Pos 32)
+	//                                return(synxth(200, "OK"));
+	//        -------------------------------######-------------
+	//
+	//        Running VCC-compiler failed, exited with 2
+	//        VCL compilation failed
+	//
+	//  Debug: Version: varnish-9.0.0 revision ce1b315b0c35477c666e4c8d8e1c9174df87eb61
+	//  Debug: Platform: Linux,7.0.5-arch1-1,x86_64,-jnone,-sdefault,-sdefault,-hcritbit
+}
+
 // Build a one-shot Varnish server, feed it a VCL and print the
 // status of a GET request
 func Example() {
@@ -198,10 +237,17 @@ func Example() {
 	}
 
 	fmt.Printf("status: %s\n", resp.Status)
+
+	if err := varnish.Counter("MAIN.client_req").Equals(21); err != nil {
+		panic(err)
+	}
+	if err := varnish.Counter("MAIN.s_synth").Equals(0); err != nil {
+		panic(err)
+	}
 }
 
 // VarnishBuilder uses the builder pattern, each configuring function returning a pointer to the [VarnishBuilder]
-// so that multiple functions can be chaind together.
+// so that multiple functions can be chained together.
 func ExampleVarnishBuilder() {
 	// add the backend definition to the loaded VCL
 	varnish, err := vtest.New().
@@ -222,6 +268,53 @@ func ExampleVarnishBuilder() {
 		panic(err)
 	}
 	defer varnish.Stop()
+}
+
+func ExampleCounterChecker() {
+	varnish, err := vtest.New().VclString(`
+		backend default none;
+		sub vcl_recv { return(synth(200, "OK")); }
+	`).Start()
+	if err != nil {
+		panic(err)
+	}
+	defer varnish.Stop()
+
+	if _, err := http.Get(varnish.URL + "/"); err != nil {
+		panic(err)
+	}
+
+	if err := varnish.Counter("MAIN.client_req").Equals(1); err != nil {
+		panic(err)
+	}
+	if err := varnish.Counter("MAIN.s_synth").AtLeast(1); err != nil {
+		panic(err)
+	}
+}
+
+func ExampleCounterChecker_WithTestFunction() {
+	varnish, err := vtest.New().VclString(`
+		backend default none;
+		sub vcl_recv { return(synth(200, "OK")); }
+	`).Start()
+	if err != nil {
+		panic(err)
+	}
+	defer varnish.Stop()
+
+	for range 5 {
+		if _, err := http.Get(varnish.URL + "/"); err != nil {
+			panic(err)
+		}
+	}
+
+	// Wait until client_req is an odd number.
+	err = varnish.Counter("MAIN.client_req").WithTestFunction(func(v uint64) bool {
+		return v%2 != 0
+	})
+	if err != nil {
+		panic(err)
+	}
 }
 
 func TestCounter(t *testing.T) {
