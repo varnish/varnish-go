@@ -1,6 +1,7 @@
 // Read VSL logs (like varnishlog, varnishncsa, etc.)
 package log
 
+
 // The main entry point is [New], which returns a [LogReaderBuilder]. Configure it
 // with optional name, timeout, query, and grouping, then call [LogReaderBuilder.Attach]
 // to get a [LogReader]. Call [LogReader.Run] to start streaming transactions.
@@ -50,6 +51,7 @@ package log
 //     if (tag <= 0 || tag >= SLT__MAX) return NULL;
 //     return VSL_tags[tag];
 // }
+//
 import "C"
 
 import (
@@ -226,7 +228,7 @@ func (r Reason) String() string {
 // see https://pkg.go.dev/encoding#TextMarshaler.
 func (r Reason) MarshalText() ([]byte, error) { return []byte(r.String()), nil }
 
-// Tag is a VSL log tag (e.g. SLT_ReqURL, SLT_RespStatus).
+// Tag is a VSL log tag (e.g. [TagReqURL], [TagRespStatus]).
 // Use [TagByName] to look up a tag by its string name.
 type Tag int
 

@@ -150,13 +150,11 @@ func TestFileQueryFilter(t *testing.T) {
 	}
 	defer r.Close()
 
-	reqURLTag, _ := varnishlog.TagByName("ReqURL")
-
 	var sawRoot, sawUnknown bool
 	err = r.Run(context.Background(), func(txns []varnishlog.Transaction) error {
 		for _, txn := range txns {
 			for _, rec := range txn.Records {
-				if rec.Tag != reqURLTag {
+				if rec.Tag != varnishlog.TagReqURL {
 					continue
 				}
 				switch rec.Data {

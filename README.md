@@ -19,6 +19,8 @@ go get github.com/varnish/varnish-go/vtest
 
 Read and filter [Varnish Shared Log](https://varnish-cache.org/docs/trunk/reference/vsl.html) transactions from a live instance or a binary file, equivalent to `varnishlog`.
 
+`log/tags.go` exposes named variables for every known VSL tag across Varnish OSS and Enterprise (e.g. `log.TagReqURL`). Values are resolved at startup; tags absent from the installed Varnish version are left as zero.
+
 ```shell
 go get github.com/varnish/varnish-go/log
 ```

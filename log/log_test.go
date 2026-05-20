@@ -74,24 +74,19 @@ func TestReceivesClientRequest(t *testing.T) {
 
 	r := newReader(t, &v)
 
-	reqURLTag, err := varnishlog.TagByName("ReqURL")
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	afterSettle(func() { http.Get(v.URL + "/hello") }) //nolint:errcheck
 
 	var found bool
-	err = r.Run(ctx, func(txns []varnishlog.Transaction) error {
+	err := r.Run(ctx, func(txns []varnishlog.Transaction) error {
 		for _, txn := range txns {
 			if txn.Type != varnishlog.TypeRequest {
 				continue
 			}
 			for _, rec := range txn.Records {
-				if rec.Tag == reqURLTag && strings.Contains(rec.Data, "/hello") {
+				if rec.Tag == varnishlog.TagReqURL && strings.Contains(rec.Data, "/hello") {
 					found = true
 					cancel()
 					return nil
@@ -166,8 +161,6 @@ func TestQueryFilter(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	reqURLTag, _ := varnishlog.TagByName("ReqURL")
-
 	afterSettle(func() {
 		http.Get(v.URL + "/keep") //nolint:errcheck
 		http.Get(v.URL + "/drop") //nolint:errcheck
@@ -177,7 +170,7 @@ func TestQueryFilter(t *testing.T) {
 	err := r.Run(ctx, func(txns []varnishlog.Transaction) error {
 		for _, txn := range txns {
 			for _, rec := range txn.Records {
-				if rec.Tag != reqURLTag {
+				if rec.Tag != varnishlog.TagReqURL {
 					continue
 				}
 				if strings.Contains(rec.Data, "/keep") {
@@ -225,14 +218,12 @@ func ExampleLogReader_Run() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	reqURLTag, _ := varnishlog.TagByName("ReqURL")
-
 	afterSettle(func() { http.Get(v.URL + "/example") }) //nolint:errcheck
 
 	r.Run(ctx, func(txns []varnishlog.Transaction) error { //nolint:errcheck
 		for _, txn := range txns {
 			for _, rec := range txn.Records {
-				if rec.Tag == reqURLTag && strings.Contains(rec.Data, "/example") {
+				if rec.Tag == varnishlog.TagReqURL && strings.Contains(rec.Data, "/example") {
 					fmt.Println(rec.Data)
 					cancel()
 				}

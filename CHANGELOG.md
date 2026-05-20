@@ -1,6 +1,10 @@
 # Changelog
 
-## v0.0.8 2026-25-13
+## v0.0.9 — 2026-05-20
+
+- **New**: `log` — named tag variables (`log.TagReqURL`, `log.TagRespStatus`, …) covering the union of all known VSL tags across Varnish OSS and Enterprise; values resolved at init via `VSL_Name2Tag`, zero if absent from the installed version
+
+## v0.0.8 — 2026-05-13
 
 - **New**: `vtest` — `CounterChecker.AssertEquals(t, n)` calls `t.Fatal` if the counter doesn't reach `n`
 - **Fix**: `vtest` — example and test cleanup for `AssertStart` and `CounterChecker`
