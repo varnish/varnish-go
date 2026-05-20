@@ -43,8 +43,12 @@ that use the OSS-only binary fixture `log/testdata/test1_log.bin`:
 go test -tags varnish_plus ./...
 ```
 
-No Makefile, no code generation (`//go:generate`), no linter config beyond
-standard `gofmt`. CI runs `go doc ./...` to verify package docs compile cleanly.
+No Makefile, no code generation, no linter config beyond standard `gofmt`. CI
+runs `go doc ./...` to verify package docs compile cleanly.
+
+`log/tags.go` declares a `var TagFoo Tag` for every known VSL tag across Varnish
+OSS and Enterprise. `init()` resolves each name via `VSL_Name2Tag`; tags absent
+from the installed Varnish version stay zero.
 
 Tests are integration tests — they open the real Varnish shared memory or spawn
 live `varnishd` processes. There are no mocked unit tests.
