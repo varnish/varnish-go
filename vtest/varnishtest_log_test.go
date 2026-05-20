@@ -55,7 +55,6 @@ func TestSetLiveFalseStopsAfterBacklog(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	reqURLTag, _ := varnishlog.TagByName("ReqURL")
 	var sawRequest bool
 
 	done := make(chan error, 1)
@@ -63,7 +62,7 @@ func TestSetLiveFalseStopsAfterBacklog(t *testing.T) {
 		done <- r.Run(ctx, func(txns []varnishlog.Transaction) error {
 			for _, txn := range txns {
 				for _, rec := range txn.Records {
-					if rec.Tag == reqURLTag && rec.Data == "/backlog-test" {
+					if rec.Tag == varnishlog.TagReqURL && rec.Data == "/backlog-test" {
 						sawRequest = true
 					}
 				}
@@ -109,10 +108,9 @@ func TestRecords(t *testing.T) {
 	if len(recs) == 0 {
 		t.Fatal("expected non-empty Records()")
 	}
-	reqURLTag, _ := varnishlog.TagByName("ReqURL")
 	var found bool
 	for _, rec := range recs {
-		if rec.Tag == reqURLTag && rec.Data == "/records-test" {
+		if rec.Tag == varnishlog.TagReqURL && rec.Data == "/records-test" {
 			found = true
 			break
 		}
@@ -140,8 +138,6 @@ func TestRecordChannel(t *testing.T) {
 		t.Fatalf("RecordChannel: %v", err)
 	}
 
-	reqURLTag, _ := varnishlog.TagByName("ReqURL")
-
 	afterSettleLog(func() { http.Get(v.URL + "/channel-test") }) //nolint:errcheck
 
 	deadline := time.After(10 * time.Second)
@@ -151,7 +147,7 @@ func TestRecordChannel(t *testing.T) {
 			if !ok {
 				t.Fatal("channel closed before finding expected record")
 			}
-			if rec.Tag == reqURLTag && rec.Data == "/channel-test" {
+			if rec.Tag == varnishlog.TagReqURL && rec.Data == "/channel-test" {
 				return // success
 			}
 		case <-deadline:
@@ -209,8 +205,6 @@ func TestTransactionChannel(t *testing.T) {
 		t.Fatalf("TransactionChannel: %v", err)
 	}
 
-	reqURLTag, _ := varnishlog.TagByName("ReqURL")
-
 	afterSettleLog(func() { http.Get(v.URL + "/txn-channel-test") }) //nolint:errcheck
 
 	deadline := time.After(10 * time.Second)
@@ -221,7 +215,7 @@ func TestTransactionChannel(t *testing.T) {
 				t.Fatal("channel closed before finding expected transaction")
 			}
 			for _, rec := range txn.Records {
-				if rec.Tag == reqURLTag && rec.Data == "/txn-channel-test" {
+				if rec.Tag == varnishlog.TagReqURL && rec.Data == "/txn-channel-test" {
 					if txn.VXID == 0 {
 						t.Error("expected non-zero VXID")
 					}
@@ -308,7 +302,6 @@ func TestNoRecordLogsChannelsWork(t *testing.T) {
 		t.Fatalf("TransactionChannel: %v", err)
 	}
 
-	reqURLTag, _ := varnishlog.TagByName("ReqURL")
 	afterSettleLog(func() { http.Get(v.URL + "/nolog-ch-test") }) //nolint:errcheck
 
 	var sawRecord, sawTxn bool
@@ -316,13 +309,13 @@ func TestNoRecordLogsChannelsWork(t *testing.T) {
 	for !sawRecord || !sawTxn {
 		select {
 		case rec, ok := <-rch:
-			if ok && rec.Tag == reqURLTag && rec.Data == "/nolog-ch-test" {
+			if ok && rec.Tag == varnishlog.TagReqURL && rec.Data == "/nolog-ch-test" {
 				sawRecord = true
 			}
 		case txn, ok := <-tch:
 			if ok {
 				for _, rec := range txn.Records {
-					if rec.Tag == reqURLTag && rec.Data == "/nolog-ch-test" {
+					if rec.Tag == varnishlog.TagReqURL && rec.Data == "/nolog-ch-test" {
 						sawTxn = true
 					}
 				}
@@ -366,15 +359,13 @@ func TestGroupingRequestIncludesBackend(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	reqURLTag, _ := varnishlog.TagByName("ReqURL")
-
 	afterSettleLog(func() { http.Get(v.URL + "/bereq-test") }) //nolint:errcheck
 
 	var sawClientReq, sawBeReq bool
 	err = r.Run(ctx, func(txns []varnishlog.Transaction) error {
 		for _, txn := range txns {
 			for _, rec := range txn.Records {
-				if rec.Tag == reqURLTag && rec.Data == "/bereq-test" {
+				if rec.Tag == varnishlog.TagReqURL && rec.Data == "/bereq-test" {
 					for _, t2 := range txns {
 						switch t2.Type {
 						case varnishlog.TypeRequest:
