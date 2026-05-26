@@ -23,6 +23,7 @@ import (
 
 	"github.com/varnish/varnish-go/adm"
 	"github.com/varnish/varnish-go/stat"
+	"github.com/varnish/varnish-go/version"
 )
 
 type parameter struct {
@@ -37,6 +38,11 @@ type backend struct {
 	tls  bool
 }
 
+type pemFile struct {
+	certFile string
+	keyFile  string // empty = key embedded in certFile
+}
+
 // VarnishBuilder is a configuration object collecting options before the actual Varnish instance is started.
 type VarnishBuilder struct {
 	vclIsFile  bool
@@ -45,10 +51,12 @@ type VarnishBuilder struct {
 
 	parameters  []parameter
 	backends    []backend
+	pemFiles    []pemFile
 	sysLogChans []chan string
 
 	noRecordLogs bool
 	noSysLogs    bool
+	tlsListener  bool
 
 	licensePath string
 
@@ -102,6 +110,9 @@ type Varnish struct {
 	// URL is the HTTP endpoint where Varnish is listening.
 	// Varnish is started with a random port, discovered after startup.
 	URL string
+
+	// TLSURL is the HTTPS endpoint where Varnish is listening, if [VarnishBuilder.TLSListener] was called.
+	TLSURL string
 
 	cmd     *exec.Cmd
 	name    string
@@ -157,6 +168,34 @@ func (vb *VarnishBuilder) VCLVersion(version string) *VarnishBuilder {
 	return vb
 }
 
+// tlsProto returns the protocol name for the TLS listener flag.
+// Varnish Plus uses "https"; open-source Varnish uses "TLS".
+func tlsProto() string {
+	if version.IsEnterprise() {
+		return "https"
+	}
+	return "TLS"
+}
+
+// TLSListener adds a TLS listener to the Varnish instance.
+// After [VarnishBuilder.Start], the TLS endpoint is available via [Varnish.TLSURL].
+// Use [VarnishBuilder.PEMFile] to load certificates automatically, or load them manually
+// via [Varnish.Adm] using tls.cert.load + tls.cert.commit.
+func (vb *VarnishBuilder) TLSListener() *VarnishBuilder {
+	vb.tlsListener = true
+	return vb
+}
+
+// PEMFile registers a TLS certificate to be loaded after Varnish starts, and implicitly enables [VarnishBuilder.TLSListener].
+// certFile is the path to the PEM certificate file; keyFile is an optional separate private key file
+// (pass "" if the key is embedded in certFile).
+// Certificates are loaded via tls.cert.load and committed with tls.cert.commit at the end of [VarnishBuilder.Start].
+func (vb *VarnishBuilder) PEMFile(certFile, keyFile string) *VarnishBuilder {
+	vb.tlsListener = true
+	vb.pemFiles = append(vb.pemFiles, pemFile{certFile: certFile, keyFile: keyFile})
+	return vb
+}
+
 // Backend creates a VCL backend definition.
 // Name must be a valid VCL backend name, otherwise Varnish will fail to start.
 // This call will panic if urlRaw isn't parsable into a [url.URL].
@@ -204,7 +243,7 @@ func (vb *VarnishBuilder) Start() (varnish Varnish, err error) {
 		"-F",
 		"-f", "",
 		"-n", name,
-		"-a", "127.0.0.1:0",
+		"-a", "HTTP=127.0.0.1:0",
 		"-p", "auto_restart=off",
 		"-p", "syslog_cli_traffic=off",
 		"-p", "thread_pool_min=10",
@@ -213,6 +252,9 @@ func (vb *VarnishBuilder) Start() (varnish Varnish, err error) {
 		"-p", "h2_initial_window_size=1m",
 		"-p", "h2_rx_window_low_water=64k",
 		"-M", sock.Addr().String(),
+	}
+	if vb.tlsListener {
+		args = append(args, "-a", "HTTPS=127.0.0.1:0,"+tlsProto())
 	}
 	for _, p := range vb.parameters {
 		args = append(args, p.name, p.value)
@@ -304,6 +346,21 @@ func (vb *VarnishBuilder) Start() (varnish Varnish, err error) {
 		return
 	}
 
+	if len(vb.pemFiles) > 0 {
+		for _, p := range vb.pemFiles {
+			args := []string{"tls.cert.load", p.certFile}
+			if p.keyFile != "" {
+				args = append(args, "-k", p.keyFile)
+			}
+			if _, err = varnish.Adm(args...); err != nil {
+				return
+			}
+		}
+		if _, err = varnish.Adm("tls.cert.commit"); err != nil {
+			return
+		}
+	}
+
 	varnish.logs = newLogState()
 	if !vb.noRecordLogs {
 		varnish.logs.startCollector(name)
@@ -360,15 +417,23 @@ func (v *Varnish) WaitRunning() error {
 				return err
 			}
 
-			var name string
-			var addr string
-			var port int
-			_, err := fmt.Sscanf(resp, "%s %s %d\n", &name, &addr, &port)
-			if err != nil {
-				return err
+			for _, line := range strings.Split(strings.TrimSpace(resp), "\n") {
+				var lname, laddr string
+				var lport int
+				if _, scanErr := fmt.Sscanf(line, "%s %s %d", &lname, &laddr, &lport); scanErr != nil {
+					continue
+				}
+				// FIXME: IPv6
+				switch lname {
+				case "HTTP":
+					v.URL = fmt.Sprintf("http://%s:%d", laddr, lport)
+				case "HTTPS":
+					v.TLSURL = fmt.Sprintf("https://%s:%d", laddr, lport)
+				}
 			}
-			// FIXME: IPv6
-			v.URL = fmt.Sprintf("http://%s:%d", addr, port)
+			if v.URL == "" && v.TLSURL == "" {
+				return fmt.Errorf("could not determine listen address from: %s", resp)
+			}
 			break
 		}
 		time.Sleep(200 * time.Millisecond)

@@ -1,12 +1,24 @@
 package vtest_test
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"fmt"
 	"io"
+	"math/big"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/varnish/varnish-go/adm"
 	"github.com/varnish/varnish-go/vtest"
@@ -359,4 +371,86 @@ func ExampleVarnishBuilder_Backend() {
 	}
 
 	fmt.Printf("response body: %s", string(body))
+}
+
+func generateSelfSignedCert(t *testing.T) (certFile, keyFile string) {
+	t.Helper()
+
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: "localhost"},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(24 * time.Hour),
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		DNSNames:     []string{"localhost"},
+		IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
+	}
+
+	certDER, err := x509.CreateCertificate(rand.Reader, template, template, &priv.PublicKey, priv)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	privDER, err := x509.MarshalECPrivateKey(priv)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dir := t.TempDir()
+	certFile = filepath.Join(dir, "cert.pem")
+	keyFile = filepath.Join(dir, "key.pem")
+
+	if err := os.WriteFile(certFile, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER}), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(keyFile, pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: privDER}), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	return certFile, keyFile
+}
+
+func TestTLSListener(t *testing.T) {
+	t.Parallel()
+
+	certFile, keyFile := generateSelfSignedCert(t)
+
+	vb := vtest.New().
+		PEMFile(certFile, keyFile).
+		VclString(`
+			backend default none;
+			sub vcl_recv {
+				return(synth(200, "TLS OK"));
+			}
+		`)
+	varnish, err := vb.Start()
+	if err != nil {
+		t.Fatalf("%v\n%s", err, strings.Join(vb.SysLogs(), "\n"))
+	}
+	defer varnish.Stop()
+
+	if varnish.TLSURL == "" {
+		t.Fatal("TLSURL is empty after TLSListener()+PEMFile()")
+	}
+
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+		},
+	}
+	resp, err := client.Get(varnish.TLSURL + "/test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		t.Errorf("expected 200, got %d", resp.StatusCode)
+	}
 }
