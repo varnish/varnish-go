@@ -1,8 +1,11 @@
 # Go SDK for Varnish
 
+[![CI](https://github.com/varnish/varnish-go/actions/workflows/ci.yml/badge.svg)](https://github.com/varnish/varnish-go/actions/workflows/ci.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/varnish/varnish-go.svg)](https://pkg.go.dev/github.com/varnish/varnish-go)
+
 **Important**: this is a work-in-progress. Bugs and feature requests welcome via [issues](https://github.com/varnish/varnish-go/issues) or [pull requests](https://github.com/varnish/varnish-go/pulls).
 
-All packages require [libvarnishapi](https://packagecloud.io/varnishplus) (open-source or Enterprise) and CGo.
+All packages require [libvarnishapi (varnish-dev or varnish-devel)](https://varnish.org) (open-source or Enterprise) and CGo.
 
 ## Packages
 
