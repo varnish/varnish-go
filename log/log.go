@@ -1,7 +1,6 @@
 // Read VSL logs (like varnishlog, varnishncsa, etc.)
 package log
 
-
 // The main entry point is [New], which returns a [LogReaderBuilder]. Configure it
 // with optional name, timeout, query, and grouping, then call [LogReaderBuilder.Attach]
 // to get a [LogReader]. Call [LogReader.Run] to start streaming transactions.
@@ -442,12 +441,12 @@ func (b *LogReaderBuilder) Attach() (*LogReader, error) {
 // Obtain one via [LogReaderBuilder.Attach] and [LogReader.Run] to start streaming.
 // Call [LogReader.Close] when done.
 type LogReader struct {
-	vsm     *C.struct_vsm
-	vsl     *C.struct_VSL_data
-	vslq    *C.struct_VSLQ
-	handle  cgo.Handle
-	backlog bool   // start cursor at log head instead of tail
-	live    *bool  // nil=stop at end, true=follow, false=stop
+	vsm    *C.struct_vsm
+	vsl    *C.struct_VSL_data
+	vslq   *C.struct_VSLQ
+	handle cgo.Handle
+	backlog bool  // start cursor at log head instead of tail
+	live    *bool // nil=stop at end, true=follow, false=stop
 	file    string // non-empty: read from this VSL file
 
 	// set for the duration of a Run call; accessed only on the Run goroutine
@@ -536,8 +535,9 @@ func (r *LogReader) runLive(ctx context.Context, priv C.uintptr_t) error {
 			}
 			C.VSLQ_SetCursor(r.vslq, &c)
 			hascursor = true
-		} else if status&uint(C.VSM_WRK_RESTARTED) != 0 {
-			// Worker restarted: flush pending records then reconnect.
+		} else if status&uint(C.VSM_WRK_RESTARTED|C.VSM_WRK_CHANGED) != 0 {
+			// Worker restarted or VSM changed (e.g. VCL reload on Varnish Plus):
+			// existing cursor is stale — flush pending records and reconnect.
 			r.notifyErr(ErrWorkerRestarted)
 			C.callVSLQFlush(r.vslq, priv)
 			if err := r.takeHandlerErr(); err != nil {

@@ -28,6 +28,11 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version: stable
+          # Disable shared build cache: OSS and Plus compile CGo against different
+          # headers (offset 32 vs 24 for VSL_transaction.c); sharing the cache
+          # causes the Plus job to use OSS-compiled artifacts, triggering a
+          # SIGABRT in VSL_Next (priv_tbl=NULL from reading past struct end).
+          cache: false
 
       - name: Install Varnish
         run: |

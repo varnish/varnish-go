@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 )
 
@@ -64,6 +65,9 @@ func (ss *syslogState) start(pr *io.PipeReader, wait func() error) {
 		scanner := bufio.NewScanner(pr)
 		for scanner.Scan() {
 			line := scanner.Text()
+			if strings.TrimSpace(line) == "" {
+				continue
+			}
 			ss.mu.Lock()
 			if ss.collect {
 				ss.lines = append(ss.lines, line)
