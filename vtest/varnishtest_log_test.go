@@ -24,6 +24,7 @@ func afterSettleLog(fn func()) {
 // return nil after draining the existing backlog, without requiring ctx cancel.
 func TestSetLiveFalseStopsAfterBacklog(t *testing.T) {
 	t.Parallel()
+
 	v, err := vtest.New().VclString(`
 		backend default none;
 		sub vcl_recv { return(synth(200, "OK")); }
@@ -89,6 +90,7 @@ func TestSetLiveFalseStopsAfterBacklog(t *testing.T) {
 // the instance started, including records written before the call.
 func TestRecords(t *testing.T) {
 	t.Parallel()
+
 	v, err := vtest.New().VclString(`
 		backend default none;
 		sub vcl_recv { return(synth(200, "OK")); }
@@ -124,6 +126,7 @@ func TestRecords(t *testing.T) {
 // closed when Stop is called.
 func TestRecordChannel(t *testing.T) {
 	t.Parallel()
+
 	v, err := vtest.New().VclString(`
 		backend default none;
 		sub vcl_recv { return(synth(200, "OK")); }
@@ -160,6 +163,7 @@ func TestRecordChannel(t *testing.T) {
 // RecordChannel is closed when Stop is called.
 func TestRecordChannelClosedOnStop(t *testing.T) {
 	t.Parallel()
+
 	v, err := vtest.New().VclString(`
 		backend default none;
 		sub vcl_recv { return(synth(200, "OK")); }
@@ -191,6 +195,7 @@ func TestRecordChannelClosedOnStop(t *testing.T) {
 // transactions and that each transaction has the expected fields.
 func TestTransactionChannel(t *testing.T) {
 	t.Parallel()
+
 	v, err := vtest.New().VclString(`
 		backend default none;
 		sub vcl_recv { return(synth(200, "OK")); }
@@ -232,6 +237,7 @@ func TestTransactionChannel(t *testing.T) {
 // TransactionChannel is closed when Stop is called.
 func TestTransactionChannelClosedOnStop(t *testing.T) {
 	t.Parallel()
+
 	v, err := vtest.New().VclString(`
 		backend default none;
 		sub vcl_recv { return(synth(200, "OK")); }
@@ -284,6 +290,7 @@ func TestNoRecordLogsRecordsEmpty(t *testing.T) {
 // still function when NoLog is set (only the records collector is disabled).
 func TestNoRecordLogsChannelsWork(t *testing.T) {
 	t.Parallel()
+
 	v, err := vtest.New().NoRecordLogs().VclString(`
 		backend default none;
 		sub vcl_recv { return(synth(200, "OK")); }
@@ -331,6 +338,7 @@ func TestNoRecordLogsChannelsWork(t *testing.T) {
 // A real HTTP backend is used so that a bereq is actually created.
 func TestGroupingRequestIncludesBackend(t *testing.T) {
 	t.Parallel()
+
 	be := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))

@@ -69,6 +69,7 @@ func TestTagByName(t *testing.T) {
 
 func TestReceivesClientRequest(t *testing.T) {
 	t.Parallel()
+
 	v := startVarnish(t)
 	defer v.Stop()
 
@@ -105,6 +106,7 @@ func TestReceivesClientRequest(t *testing.T) {
 
 func TestTransactionFields(t *testing.T) {
 	t.Parallel()
+
 	v := startVarnish(t)
 	defer v.Stop()
 
@@ -151,6 +153,7 @@ func TestTransactionFields(t *testing.T) {
 
 func TestQueryFilter(t *testing.T) {
 	t.Parallel()
+
 	v := startVarnish(t)
 	defer v.Stop()
 

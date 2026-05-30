@@ -213,7 +213,6 @@ func TestVarnishBuilder_Start_BadVCL(t *testing.T) {
 	}
 }
 
-
 // Build a one-shot Varnish server, feed it a VCL and print the
 // status of a GET request
 func Example() {

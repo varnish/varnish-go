@@ -453,6 +453,11 @@ func (v *Varnish) Adm(args ...string) (string, error) {
 	return v.conn.Ask(args...)
 }
 
+// AdmConn returns a pointer to the underlying admin connection.
+func (v *Varnish) AdmConn() *adm.Conn {
+	return &v.conn
+}
+
 // CounterChecker is a fluent builder for polling a Varnish stat counter until a condition is met.
 // Created via [Varnish.Counter]; configure with TryFor/TryEvery/MustExist, then call a terminal method.
 type CounterChecker struct {

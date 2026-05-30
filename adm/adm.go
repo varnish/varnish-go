@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"net"
 	"net/netip"
 	"os"
@@ -173,7 +174,7 @@ func (conn *Conn) ReadMessage() (status int, message []byte, err error) {
 	}
 	message = make([]byte, sz+1)
 
-	_, err = conn.Read(message)
+	_, err = io.ReadFull(conn, message)
 	if err != nil {
 		return
 	}
