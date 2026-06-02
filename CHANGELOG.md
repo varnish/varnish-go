@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.0.12 — 2026-06-02
+
+- **New**: add `TLSCertList` and `TLSCertDiscard` to  `adm.Conn`
+
+## v0.0.11 — 2026-05-30
+
+- **New**: `adm.Conn` now has typed methods for (almost) all known `varnishadm` commands
+
+## v0.0.10 — 2026-05-26
+
+- **New**: `vtest` now has TLS helper to start `varnish` listening to HTTPS
+ 
 ## v0.0.9 — 2026-05-20
 
 - **New**: `log` — named tag variables (`log.TagReqURL`, `log.TagRespStatus`, …) covering the union of all known VSL tags across Varnish OSS and Enterprise; values resolved at init via `VSL_Name2Tag`, zero if absent from the installed version
