@@ -41,6 +41,23 @@ const (
 	VCLTempCooling                       // VCL is transitioning to cold
 )
 
+func (t VCLTemperature) String() string {
+	switch t {
+	case VCLTempInit:
+		return "init"
+	case VCLTempCold:
+		return "cold"
+	case VCLTempWarm:
+		return "warm"
+	case VCLTempBusy:
+		return "busy"
+	case VCLTempCooling:
+		return "cooling"
+	default:
+		return "unknown"
+	}
+}
+
 func vclTempFromString(s string) VCLTemperature {
 	switch s {
 	case "init":

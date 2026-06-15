@@ -32,6 +32,25 @@ func vclTempFile(t *testing.T) *os.File {
 	return f
 }
 
+func TestVCLTemperatureString(t *testing.T) {
+	cases := []struct {
+		in   adm.VCLTemperature
+		want string
+	}{
+		{adm.VCLTempWarm, "warm"},
+		{adm.VCLTempCold, "cold"},
+		{adm.VCLTempInit, "init"},
+		{adm.VCLTempBusy, "busy"},
+		{adm.VCLTempCooling, "cooling"},
+		{adm.VCLTempUnknown, "unknown"},
+	}
+	for _, c := range cases {
+		if got := c.in.String(); got != c.want {
+			t.Errorf("VCLTemperature(%d).String() = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
 func TestVCLList(t *testing.T) {
 	t.Parallel()
 	v := vtest.New().VclString(baseVCL).AssertStart(t)

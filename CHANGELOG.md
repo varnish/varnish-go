@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.0.13 — 2026-06-15
+
+- **New**: add `VCLTemperature.String()` to `adm.Conn`
+
 ## v0.0.12 — 2026-06-02
 
 - **New**: add `TLSCertList` and `TLSCertDiscard` to  `adm.Conn`
