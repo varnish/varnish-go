@@ -1,6 +1,10 @@
 # Changelog
 
-## v0.0.13 — 2026-06-15
+## v0.0.14 — 2026-06-16
+
+- **Breaking**: `adm.TLSCertLoad` — second argument changed from `keyFile string` to `opts ...TLSOption`; accepts optional cert ID, frontend, key file, protocols, ciphers, cipher suites, default-cert flag, and server-cipher-order flag
+
+## v0.0.13 — 2026-06-16
 
 - **New**: add `VCLTemperature.String()` to `adm.Conn`
 

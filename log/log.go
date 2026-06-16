@@ -441,12 +441,12 @@ func (b *LogReaderBuilder) Attach() (*LogReader, error) {
 // Obtain one via [LogReaderBuilder.Attach] and [LogReader.Run] to start streaming.
 // Call [LogReader.Close] when done.
 type LogReader struct {
-	vsm    *C.struct_vsm
-	vsl    *C.struct_VSL_data
-	vslq   *C.struct_VSLQ
-	handle cgo.Handle
-	backlog bool  // start cursor at log head instead of tail
-	live    *bool // nil=stop at end, true=follow, false=stop
+	vsm     *C.struct_vsm
+	vsl     *C.struct_VSL_data
+	vslq    *C.struct_VSLQ
+	handle  cgo.Handle
+	backlog bool   // start cursor at log head instead of tail
+	live    *bool  // nil=stop at end, true=follow, false=stop
 	file    string // non-empty: read from this VSL file
 
 	// set for the duration of a Run call; accessed only on the Run goroutine
