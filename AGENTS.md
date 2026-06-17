@@ -145,6 +145,14 @@ docker rm -f varnish-plus-test
 
 ---
 
+## Conventions
+
+In code comments and documentation, use full product names:
+- **"Varnish Cache"** — not CE, VC, OSS, or "open-source Varnish"
+- **"Varnish Enterprise"** — not VE, Plus, or "Varnish Plus"
+
+---
+
 ## CI
 
 Two matrix variants in `.github/workflows/ci.yml`, each running:

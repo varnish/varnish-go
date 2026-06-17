@@ -8,11 +8,38 @@ import (
 
 // TLSCertEntry describes a single TLS certificate binding as reported by tls.cert.list.
 // The same certificate ID appears once per frontend it is bound to.
+//
+// Fields marked "Varnish Cache only" are zero on Varnish Enterprise.
+// Fields marked "Varnish Enterprise only" are zero on Varnish Cache.
 type TLSCertEntry struct {
-	Frontend string `json:"frontend"` // listener name, e.g. "HTTPS"
-	ID       string `json:"id"`       // certificate identifier, e.g. "cert0"
-	Status   string `json:"status"`   // "active", "staged", or "discard"
-	Subject  string `json:"subject"`  // certificate subject CN
+	Frontend     string `json:"frontend"`      // listener name, e.g. "HTTPS"
+	ID           string `json:"id"`            // certificate identifier, e.g. "cert0"
+	Status       string `json:"status"`        // "active", "staged", or "discard"
+	Subject      string `json:"subject"`       // certificate subject CN — Varnish Cache only
+	Name         string `json:"name"`          // FQDN/hostname — Varnish Enterprise only
+	Expiry       string `json:"expiry"`        // certificate expiry date — Varnish Enterprise only
+	Staple       bool   `json:"staple"`        // OCSP stapling enabled — Varnish Enterprise only
+	ClientVerify string `json:"client_verify"` // client certificate verification mode — Varnish Enterprise only
+	CRL          bool   `json:"crl"`           // CRL checking enabled — Varnish Enterprise only
+}
+
+// tlsFQDN is the per-FQDN object inside a Varnish Enterprise tls.cert.list -j response.
+type tlsFQDN struct {
+	ID           string `json:"id"`
+	State        string `json:"state"`
+	Name         string `json:"name"`
+	Expiry       string `json:"expiry"`
+	Staple       bool   `json:"staple"`
+	ClientVerify string `json:"client_verify"`
+	CRL          bool   `json:"crl"`
+}
+
+// tlsCertListVE is the top-level Varnish Enterprise tls.cert.list -j response.
+type tlsCertListVE struct {
+	Frontends []struct {
+		Name  string    `json:"name"`
+		FQDNs []tlsFQDN `json:"fqdns"`
+	} `json:"frontends"`
 }
 
 // TLSCertList returns all currently loaded TLS certificate bindings.
@@ -21,9 +48,39 @@ func (c *Conn) TLSCertList() ([]TLSCertEntry, error) {
 	if err != nil {
 		return nil, err
 	}
+	version, err := c.Version()
+	if err != nil {
+		return nil, err
+	}
+	if version.IsEnterprise {
+		return parseTLSCertListVE(msg)
+	}
 	var entries []TLSCertEntry
 	if err := json.Unmarshal([]byte(msg), &entries); err != nil {
 		return nil, fmt.Errorf("parse tls.cert.list: %w", err)
+	}
+	return entries, nil
+}
+
+func parseTLSCertListVE(msg string) ([]TLSCertEntry, error) {
+	var resp tlsCertListVE
+	if err := json.Unmarshal([]byte(msg), &resp); err != nil {
+		return nil, fmt.Errorf("parse tls.cert.list: %w", err)
+	}
+	var entries []TLSCertEntry
+	for _, f := range resp.Frontends {
+		for _, fqdn := range f.FQDNs {
+			entries = append(entries, TLSCertEntry{
+				Frontend:     f.Name,
+				ID:           fqdn.ID,
+				Status:       fqdn.State,
+				Name:         fqdn.Name,
+				Expiry:       fqdn.Expiry,
+				Staple:       fqdn.Staple,
+				ClientVerify: fqdn.ClientVerify,
+				CRL:          fqdn.CRL,
+			})
+		}
 	}
 	return entries, nil
 }
