@@ -1,10 +1,13 @@
 package adm
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 // Status returns the running state of the child process (e.g. "running", "stopped").
-func (c *Conn) Status() (string, error) {
-	msg, err := c.Ask("status", "-j")
+func (c *Conn) Status(ctx context.Context) (string, error) {
+	msg, err := c.Ask(ctx, "status", "-j")
 	if err != nil {
 		return "", err
 	}
@@ -12,8 +15,8 @@ func (c *Conn) Status() (string, error) {
 }
 
 // Ping verifies the connection to varnishd is alive.
-func (c *Conn) Ping() error {
-	_, err := c.Ask("ping")
+func (c *Conn) Ping(ctx context.Context) error {
+	_, err := c.Ask(ctx, "ping")
 	return err
 }
 
@@ -24,8 +27,8 @@ type PIDResponse struct {
 }
 
 // PID returns the PIDs of the varnishd master and worker processes.
-func (c *Conn) PID() (PIDResponse, error) {
-	msg, err := c.Ask("pid", "-j")
+func (c *Conn) PID(ctx context.Context) (PIDResponse, error) {
+	msg, err := c.Ask(ctx, "pid", "-j")
 	if err != nil {
 		return PIDResponse{}, err
 	}
@@ -33,25 +36,25 @@ func (c *Conn) PID() (PIDResponse, error) {
 }
 
 // Start starts the varnishd cache worker process.
-func (c *Conn) Start() error {
-	_, err := c.Ask("start")
+func (c *Conn) Start(ctx context.Context) error {
+	_, err := c.Ask(ctx, "start")
 	return err
 }
 
 // Stop stops the varnishd cache worker process.
-func (c *Conn) Stop() error {
-	_, err := c.Ask("stop")
+func (c *Conn) Stop(ctx context.Context) error {
+	_, err := c.Ask(ctx, "stop")
 	return err
 }
 
 // Banner returns the varnishd welcome banner.
-func (c *Conn) Banner() (string, error) {
-	return c.Ask("banner")
+func (c *Conn) Banner(ctx context.Context) (string, error) {
+	return c.Ask(ctx, "banner")
 }
 
 // Quit closes the admin connection. varnishd responds with status 500 on quit.
-func (c *Conn) Quit() error {
-	status, _, err := c.AskRaw("quit")
+func (c *Conn) Quit(ctx context.Context) error {
+	status, _, err := c.AskRaw(ctx, "quit")
 	if err != nil {
 		return err
 	}
@@ -63,8 +66,8 @@ func (c *Conn) Quit() error {
 
 // PanicShow returns the last panic message, or an empty string if none.
 // varnishd returns status 300 when no panic has occurred.
-func (c *Conn) PanicShow() (string, error) {
-	status, msg, err := c.AskRaw("panic.show", "-j")
+func (c *Conn) PanicShow(ctx context.Context) (string, error) {
+	status, msg, err := c.AskRaw(ctx, "panic.show", "-j")
 	if err != nil {
 		return "", err
 	}
@@ -79,12 +82,12 @@ func (c *Conn) PanicShow() (string, error) {
 
 // PanicClear clears the last panic. If resetCounters is true, related varnishstat counters are also reset.
 // varnishd returns status 300 when there is no panic to clear; this is treated as success.
-func (c *Conn) PanicClear(resetCounters bool) error {
+func (c *Conn) PanicClear(ctx context.Context, resetCounters bool) error {
 	args := []string{"panic.clear"}
 	if resetCounters {
 		args = append(args, "-z")
 	}
-	status, msg, err := c.AskRaw(args...)
+	status, msg, err := c.AskRaw(ctx, args...)
 	if err != nil {
 		return err
 	}

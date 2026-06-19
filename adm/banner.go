@@ -1,6 +1,7 @@
 package adm
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
@@ -20,8 +21,12 @@ type BannerVersion struct {
 var bannerVersionRE = regexp.MustCompile(`^(varnish(?:-plus)?)-(\S+)\s+revision\s+(\S+)`)
 
 // Version returns version information from the Varnish admin banner.
-func (c *Conn) Version() (BannerVersion, error) {
-	msg, err := c.Ask("banner")
+// The result is cached after the first successful call.
+func (c *Conn) Version(ctx context.Context) (BannerVersion, error) {
+	if c.cachedVersion != nil {
+		return *c.cachedVersion, nil
+	}
+	msg, err := c.Ask(ctx, "banner")
 	if err != nil {
 		return BannerVersion{}, err
 	}
@@ -30,11 +35,13 @@ func (c *Conn) Version() (BannerVersion, error) {
 		if m == nil {
 			continue
 		}
-		return BannerVersion{
+		v := BannerVersion{
 			IsEnterprise: m[1] == "varnish-plus",
 			Version:      m[2],
 			Revision:     m[3],
-		}, nil
+		}
+		c.cachedVersion = &v
+		return v, nil
 	}
 	return BannerVersion{}, fmt.Errorf("adm.Version: no version line found in banner")
 }

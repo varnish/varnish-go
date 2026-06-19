@@ -1,6 +1,7 @@
 package adm
 
 import (
+	"context"
 	"encoding/json"
 	"time"
 )
@@ -34,8 +35,8 @@ func (e *BanEntry) UnmarshalJSON(data []byte) error {
 }
 
 // BanList returns all active bans.
-func (c *Conn) BanList() ([]BanEntry, error) {
-	msg, err := c.Ask("ban.list", "-j")
+func (c *Conn) BanList(ctx context.Context) ([]BanEntry, error) {
+	msg, err := c.Ask(ctx, "ban.list", "-j")
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +45,7 @@ func (c *Conn) BanList() ([]BanEntry, error) {
 
 // Ban creates a new ban matching the given expression.
 // expression format: "field operator arg [&& field operator arg ...]"
-func (c *Conn) Ban(expression string) error {
-	_, err := c.Ask("ban", expression)
+func (c *Conn) Ban(ctx context.Context, expression string) error {
+	_, err := c.Ask(ctx, "ban", expression)
 	return err
 }

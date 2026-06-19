@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.1 — 2026-06-19
+
+- **Breaking**: all `adm.Conn` methods, `Connect`, `ConnectRaw`, and `Accept` now take `context.Context` as their first argument; context deadline is forwarded to the connection, and cancellation interrupts in-progress I/O by expiring the connection deadline
+- **New**: `adm.Conn.Version()` — queries the admin banner and returns `BannerVersion` with `IsEnterprise bool`, `Version string`, and `Revision string`; errors if the version line cannot be parsed
+- **New**: `adm.TLSCertEntry` — extended with Varnish Enterprise fields (`Name`, `Expiry`, `Staple`, `ClientVerify`, `CRL`); `TLSCertList` now parses both Varnish Cache (flat array) and Varnish Enterprise (nested `frontends`/`fqdns`) output, branching on `Conn.Version()`
+
 ## v0.0.14 — 2026-06-16
 
 - **Breaking**: `adm.TLSCertLoad` — second argument changed from `keyFile string` to `opts ...TLSOption`; accepts optional cert ID, frontend, key file, protocols, ciphers, cipher suites, default-cert flag, and server-cipher-order flag

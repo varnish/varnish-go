@@ -1,6 +1,7 @@
 package adm_test
 
 import (
+	"context"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -47,17 +48,18 @@ func TestTLSCertLoadBasic(t *testing.T) {
 	v := vtest.New().TLSListener().NoRecordLogs().VclString(baseVCL).AssertStart(t)
 	defer v.Stop()
 	conn := v.AdmConn()
+	ctx := context.Background()
 
-	err := conn.TLSCertLoad(tdCombined)
+	err := conn.TLSCertLoad(ctx, tdCombined)
 	skipIfTLSUnsupported(t, err)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := conn.TLSCertCommit(); err != nil {
+	if err := conn.TLSCertCommit(ctx); err != nil {
 		t.Fatal(err)
 	}
 
-	entries, err := conn.TLSCertList()
+	entries, err := conn.TLSCertList(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,17 +74,18 @@ func TestTLSCertLoadSeparateKey(t *testing.T) {
 	v := vtest.New().TLSListener().NoRecordLogs().VclString(baseVCL).AssertStart(t)
 	defer v.Stop()
 	conn := v.AdmConn()
+	ctx := context.Background()
 
-	err := conn.TLSCertLoad(tdCertOnly, adm.TLSWithKeyFile(tdKeyOnly))
+	err := conn.TLSCertLoad(ctx, tdCertOnly, adm.TLSWithKeyFile(tdKeyOnly))
 	skipIfTLSUnsupported(t, err)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := conn.TLSCertCommit(); err != nil {
+	if err := conn.TLSCertCommit(ctx); err != nil {
 		t.Fatal(err)
 	}
 
-	entries, err := conn.TLSCertList()
+	entries, err := conn.TLSCertList(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,15 +100,16 @@ func TestTLSCertLoadOptions(t *testing.T) {
 	v := vtest.New().TLSListener().NoRecordLogs().VclString(baseVCL).AssertStart(t)
 	defer v.Stop()
 	conn := v.AdmConn()
-	defer conn.TLSCertRollback() //nolint:errcheck — best-effort cleanup if probe or a subtest leaves staged state
+	ctx := context.Background()
+	defer conn.TLSCertRollback(ctx) //nolint:errcheck — best-effort cleanup if probe or a subtest leaves staged state
 
 	// probe support once before the table
-	err := conn.TLSCertLoad(tdCombined)
+	err := conn.TLSCertLoad(ctx, tdCombined)
 	skipIfTLSUnsupported(t, err)
 	if err != nil {
 		t.Fatalf("probe load: %v", err)
 	}
-	if err := conn.TLSCertRollback(); err != nil {
+	if err := conn.TLSCertRollback(ctx); err != nil {
 		t.Fatalf("probe rollback: %v", err)
 	}
 
@@ -127,11 +131,11 @@ func TestTLSCertLoadOptions(t *testing.T) {
 	// Subtests share conn and must run sequentially; t.Parallel() is intentionally absent.
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			defer conn.TLSCertRollback() //nolint:errcheck
-			if err := conn.TLSCertLoad(tc.certFile, tc.opts...); err != nil {
+			defer conn.TLSCertRollback(ctx) //nolint:errcheck
+			if err := conn.TLSCertLoad(ctx, tc.certFile, tc.opts...); err != nil {
 				t.Fatalf("TLSCertLoad(%s): %v", tc.name, err)
 			}
-			if err := conn.TLSCertRollback(); err != nil {
+			if err := conn.TLSCertRollback(ctx); err != nil {
 				t.Fatalf("TLSCertRollback(%s): %v", tc.name, err)
 			}
 		})
@@ -145,6 +149,7 @@ func TestTLSCertLoadValidation(t *testing.T) {
 	v := vtest.New().NoRecordLogs().VclString(baseVCL).AssertStart(t)
 	defer v.Stop()
 	conn := v.AdmConn()
+	ctx := context.Background()
 
 	cases := []struct {
 		name    string
@@ -174,7 +179,7 @@ func TestTLSCertLoadValidation(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			// "cert.pem" does not exist — intentional: validation fires before any file I/O.
-			err := conn.TLSCertLoad("cert.pem", tc.opts...)
+			err := conn.TLSCertLoad(ctx, "cert.pem", tc.opts...)
 			if err == nil {
 				t.Fatalf("%s: expected validation error, got nil", tc.name)
 			}
@@ -191,17 +196,18 @@ func TestTLSCertListAndDiscard(t *testing.T) {
 	v := vtest.New().TLSListener().NoRecordLogs().VclString(baseVCL).AssertStart(t)
 	defer v.Stop()
 	conn := v.AdmConn()
+	ctx := context.Background()
 
-	err := conn.TLSCertLoad(tdCombined, adm.TLSWithCertID("discard-test"))
+	err := conn.TLSCertLoad(ctx, tdCombined, adm.TLSWithCertID("discard-test"))
 	skipIfTLSUnsupported(t, err)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := conn.TLSCertCommit(); err != nil {
+	if err := conn.TLSCertCommit(ctx); err != nil {
 		t.Fatal(err)
 	}
 
-	entries, err := conn.TLSCertList()
+	entries, err := conn.TLSCertList(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -216,14 +222,14 @@ func TestTLSCertListAndDiscard(t *testing.T) {
 		t.Errorf("TLSCertList: expected entry with ID %q, got %+v", "discard-test", entries)
 	}
 
-	if err := conn.TLSCertDiscard("discard-test"); err != nil {
+	if err := conn.TLSCertDiscard(ctx, "discard-test"); err != nil {
 		t.Fatal(err)
 	}
-	if err := conn.TLSCertCommit(); err != nil {
+	if err := conn.TLSCertCommit(ctx); err != nil {
 		t.Fatal(err)
 	}
 
-	entries, err = conn.TLSCertList()
+	entries, err = conn.TLSCertList(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -233,4 +239,3 @@ func TestTLSCertListAndDiscard(t *testing.T) {
 		}
 	}
 }
-

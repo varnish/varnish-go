@@ -1,6 +1,7 @@
 package adm_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -56,15 +57,16 @@ func TestVCLList(t *testing.T) {
 	v := vtest.New().VclString(baseVCL).AssertStart(t)
 	defer v.Stop()
 	conn := v.AdmConn()
+	ctx := context.Background()
 
 	const vcl2src = "vcl 4.1;\nbackend default none;\nsub vcl_recv { return(synth(200, \"vcl2\")); }\n"
-	if err := conn.VCLInline("vcl2", vcl2src, adm.VCLStateAuto); err != nil {
+	if err := conn.VCLInline(ctx, "vcl2", vcl2src, adm.VCLStateAuto); err != nil {
 		t.Fatal(err)
 	}
-	defer conn.VCLDiscard("vcl2")
+	defer conn.VCLDiscard(ctx, "vcl2")
 
 	// map["vcl1": {Status: "active", Temperature: != VCLTempUnknown}, "vcl2": {Status: "available", ...}]
-	entryMap, err := conn.VCLList()
+	entryMap, err := conn.VCLList(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,19 +90,20 @@ func TestVCLDeps(t *testing.T) {
 	v := vtest.New().VclString(baseVCL).AssertStart(t)
 	defer v.Stop()
 	conn := v.AdmConn()
+	ctx := context.Background()
 
 	const vcl2 = "vcl 4.1;\nbackend default none;\nsub vcl_recv { return(synth(200, \"OK\")); }\n"
-	if err := conn.VCLInline("vcl_dep_test", vcl2, adm.VCLStateAuto); err != nil {
+	if err := conn.VCLInline(ctx, "vcl_dep_test", vcl2, adm.VCLStateAuto); err != nil {
 		t.Fatal(err)
 	}
-	defer conn.VCLDiscard("dep_label", "vcl_dep_test")
+	defer conn.VCLDiscard(ctx, "dep_label", "vcl_dep_test")
 
-	if err := conn.VCLLabel("dep_label", "vcl_dep_test"); err != nil {
+	if err := conn.VCLLabel(ctx, "dep_label", "vcl_dep_test"); err != nil {
 		t.Fatal(err)
 	}
 
 	// map["vcl1": [], "dep_label": ["vcl_dep_test"], ...]
-	depMap, err := conn.VCLDeps()
+	depMap, err := conn.VCLDeps(ctx)
 	if err != nil {
 		if strings.Contains(err.Error(), "Unknown request") {
 			t.Skip("vcl.deps not supported on this varnishd")
@@ -126,7 +129,7 @@ func TestVCLShow(t *testing.T) {
 	defer v.Stop()
 
 	// []VCLFile{{Path: "<vcl.inline>", Content: contains baseVCL}, {Path: "<builtin>", ...}}
-	files, err := v.AdmConn().VCLShow("vcl1")
+	files, err := v.AdmConn().VCLShow(context.Background(), "vcl1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +152,7 @@ func TestVCLSymtab(t *testing.T) {
 	v := vtest.New().VclString(baseVCL).AssertStart(t)
 	defer v.Stop()
 
-	sym, err := v.AdmConn().VCLSymtab()
+	sym, err := v.AdmConn().VCLSymtab(context.Background())
 	if err != nil {
 		if strings.Contains(err.Error(), "Unknown request") {
 			t.Skip("vcl.symtab not supported on this varnishd")
@@ -166,18 +169,19 @@ func TestVCLInlineUseDiscard(t *testing.T) {
 	v := vtest.New().VclString(baseVCL).AssertStart(t)
 	defer v.Stop()
 	conn := v.AdmConn()
+	ctx := context.Background()
 
 	const vcl2 = "vcl 4.1;\nbackend default none;\nsub vcl_recv { return(synth(200, \"vcl2\")); }\n"
-	if err := conn.VCLInline("vcl2", vcl2, adm.VCLStateAuto); err != nil {
+	if err := conn.VCLInline(ctx, "vcl2", vcl2, adm.VCLStateAuto); err != nil {
 		t.Fatal(err)
 	}
-	if err := conn.VCLUse("vcl2"); err != nil {
+	if err := conn.VCLUse(ctx, "vcl2"); err != nil {
 		t.Fatal(err)
 	}
-	if err := conn.VCLUse("vcl1"); err != nil {
+	if err := conn.VCLUse(ctx, "vcl1"); err != nil {
 		t.Fatal(err)
 	}
-	if err := conn.VCLDiscard("vcl2"); err != nil {
+	if err := conn.VCLDiscard(ctx, "vcl2"); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -187,6 +191,7 @@ func TestVCLLoadUseDiscard(t *testing.T) {
 	v := vtest.New().NoRecordLogs().VclString(baseVCL).AssertStart(t)
 	defer v.Stop()
 	conn := v.AdmConn()
+	ctx := context.Background()
 
 	f := vclTempFile(t)
 	if _, err := fmt.Fprintf(f, "vcl 4.1;\nbackend default none;\nsub vcl_recv { return(synth(200, \"loaded\")); }\n"); err != nil {
@@ -194,16 +199,16 @@ func TestVCLLoadUseDiscard(t *testing.T) {
 	}
 	f.Close()
 
-	if err := conn.VCLLoad("vcl_loaded", f.Name(), adm.VCLStateAuto); err != nil {
+	if err := conn.VCLLoad(ctx, "vcl_loaded", f.Name(), adm.VCLStateAuto); err != nil {
 		t.Fatal(err)
 	}
-	if err := conn.VCLUse("vcl_loaded"); err != nil {
+	if err := conn.VCLUse(ctx, "vcl_loaded"); err != nil {
 		t.Fatal(err)
 	}
-	if err := conn.VCLUse("vcl1"); err != nil {
+	if err := conn.VCLUse(ctx, "vcl1"); err != nil {
 		t.Fatal(err)
 	}
-	if err := conn.VCLDiscard("vcl_loaded"); err != nil {
+	if err := conn.VCLDiscard(ctx, "vcl_loaded"); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -213,20 +218,21 @@ func TestVCLLabel(t *testing.T) {
 	v := vtest.New().NoRecordLogs().VclString(baseVCL).AssertStart(t)
 	defer v.Stop()
 	conn := v.AdmConn()
+	ctx := context.Background()
 
 	f := vclTempFile(t)
 	fmt.Fprintf(f, "vcl 4.1;\nbackend default none;\nsub vcl_recv { return(synth(200, \"OK\")); }\n")
 	f.Close()
 
-	if err := conn.VCLLoad("vcl_to_label", f.Name(), adm.VCLStateAuto); err != nil {
+	if err := conn.VCLLoad(ctx, "vcl_to_label", f.Name(), adm.VCLStateAuto); err != nil {
 		t.Fatal(err)
 	}
-	if err := conn.VCLLabel("mylabel", "vcl_to_label"); err != nil {
+	if err := conn.VCLLabel(ctx, "mylabel", "vcl_to_label"); err != nil {
 		t.Fatal(err)
 	}
 
 	// map["mylabel": {Status: "available", State: "label", Temperature: VCLTempWarm}, "vcl_to_label": {Status: "available", State: "auto", Temperature: VCLTempWarm}]
-	entryMap, err := conn.VCLList()
+	entryMap, err := conn.VCLList(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -243,7 +249,7 @@ func TestVCLLabel(t *testing.T) {
 		t.Errorf("vcl_to_label: got %+v, want %+v", e, want)
 	}
 
-	if err := conn.VCLDiscard("mylabel", "vcl_to_label"); err != nil {
+	if err := conn.VCLDiscard(ctx, "mylabel", "vcl_to_label"); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -253,37 +259,38 @@ func TestVCLRouting(t *testing.T) {
 	v := vtest.New().VclString(baseVCL).AssertStart(t)
 	defer v.Stop()
 	conn := v.AdmConn()
+	ctx := context.Background()
 
 	const vclA = "vcl 4.1;\nbackend default none;\nsub vcl_recv { return(synth(200, \"a\")); }\n"
-	if err := conn.VCLInline("vcl_a", vclA, adm.VCLStateAuto); err != nil {
+	if err := conn.VCLInline(ctx, "vcl_a", vclA, adm.VCLStateAuto); err != nil {
 		t.Fatal(err)
 	}
-	if err := conn.VCLLabel("label_a", "vcl_a"); err != nil {
+	if err := conn.VCLLabel(ctx, "label_a", "vcl_a"); err != nil {
 		t.Fatal(err)
 	}
 
 	const vclB = "vcl 4.1;\nbackend default none;\nsub vcl_recv { return(synth(200, \"b\")); }\n"
-	if err := conn.VCLInline("vcl_b", vclB, adm.VCLStateAuto); err != nil {
+	if err := conn.VCLInline(ctx, "vcl_b", vclB, adm.VCLStateAuto); err != nil {
 		t.Fatal(err)
 	}
-	if err := conn.VCLLabel("label_b", "vcl_b"); err != nil {
+	if err := conn.VCLLabel(ctx, "label_b", "vcl_b"); err != nil {
 		t.Fatal(err)
 	}
 
 	const routingVCL = "vcl 4.1;\nbackend default none;\nsub vcl_recv {\n\tif (req.url ~ \"^/a\") {\n\t\treturn(vcl(label_a));\n\t}\n\treturn(vcl(label_b));\n}\n"
-	if err := conn.VCLInline("routing_vcl", routingVCL, adm.VCLStateAuto); err != nil {
+	if err := conn.VCLInline(ctx, "routing_vcl", routingVCL, adm.VCLStateAuto); err != nil {
 		t.Fatal(err)
 	}
-	if err := conn.VCLUse("routing_vcl"); err != nil {
+	if err := conn.VCLUse(ctx, "routing_vcl"); err != nil {
 		t.Fatal(err)
 	}
-	defer conn.VCLDiscard("vcl_a", "vcl_b")
-	defer conn.VCLDiscard("label_a", "label_b")
-	defer conn.VCLDiscard("routing_vcl")
-	defer conn.VCLUse("vcl1")
+	defer conn.VCLDiscard(ctx, "vcl_a", "vcl_b")
+	defer conn.VCLDiscard(ctx, "label_a", "label_b")
+	defer conn.VCLDiscard(ctx, "routing_vcl")
+	defer conn.VCLUse(ctx, "vcl1")
 
 	// map["routing_vcl": {Status: "active"}, "label_a": {State: "label"}, "label_b": {State: "label"}, ...]
-	entryMap, err := conn.VCLList()
+	entryMap, err := conn.VCLList(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -303,7 +310,7 @@ func TestVCLRouting(t *testing.T) {
 	}
 
 	// map["routing_vcl": ["label_a", "label_b"], "label_a": ["vcl_a"], "label_b": ["vcl_b"], ...]
-	depMap, err := conn.VCLDeps()
+	depMap, err := conn.VCLDeps(ctx)
 	if err != nil {
 		if strings.Contains(err.Error(), "Unknown request") {
 			t.Skip("vcl.deps not supported on this varnishd")
@@ -337,21 +344,22 @@ func TestVCLSetState(t *testing.T) {
 	v := vtest.New().NoRecordLogs().VclString(baseVCL).AssertStart(t)
 	defer v.Stop()
 	conn := v.AdmConn()
+	ctx := context.Background()
 
 	f := vclTempFile(t)
 	fmt.Fprintf(f, "vcl 4.1;\nbackend default none;\nsub vcl_recv { return(synth(200, \"OK\")); }\n")
 	f.Close()
 
-	if err := conn.VCLLoad("vcl_state_test", f.Name(), adm.VCLStateAuto); err != nil {
+	if err := conn.VCLLoad(ctx, "vcl_state_test", f.Name(), adm.VCLStateAuto); err != nil {
 		t.Fatal(err)
 	}
-	defer conn.VCLDiscard("vcl_state_test")
+	defer conn.VCLDiscard(ctx, "vcl_state_test")
 
-	if err := conn.VCLSetState("vcl_state_test", adm.VCLStateCold); err != nil {
+	if err := conn.VCLSetState(ctx, "vcl_state_test", adm.VCLStateCold); err != nil {
 		t.Fatal(err)
 	}
 	// map["vcl_state_test": {Status: "available", State: "cold", Temperature: VCLTempCold, Busy: 0}]
-	entryMap, err := conn.VCLList()
+	entryMap, err := conn.VCLList(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}

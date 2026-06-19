@@ -1,6 +1,7 @@
 package adm
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -79,8 +80,8 @@ type backendDetailsRaw struct {
 
 // BackendList returns all backends keyed by full name (e.g. "vcl1.default").
 // Always issues backend.list -j -p to varnishd (all backends, probe details included).
-func (c *Conn) BackendList() (map[string]BackendEntry, error) {
-	msg, err := c.Ask("backend.list", "-j", "-p")
+func (c *Conn) BackendList(ctx context.Context) (map[string]BackendEntry, error) {
+	msg, err := c.Ask(ctx, "backend.list", "-j", "-p")
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +114,7 @@ var backendPatternRE = regexp.MustCompile(`^[A-Za-z0-9._*]+$`)
 // BackendSetHealth sets the health state of all backends matching pattern.
 // pattern must contain only [A-Za-z0-9._*] and exactly one dot (e.g. "vcl1.*", "*.default").
 // state must not be ProbeUnknown; ProbeProbe maps to "auto" (probe-determined).
-func (c *Conn) BackendSetHealth(pattern string, state ProbeHealth) error {
+func (c *Conn) BackendSetHealth(ctx context.Context, pattern string, state ProbeHealth) error {
 	if !backendPatternRE.MatchString(pattern) || strings.Count(pattern, ".") != 1 {
 		return fmt.Errorf("invalid backend pattern %q: must match [A-Za-z0-9._*]+ with exactly one dot", pattern)
 	}
@@ -128,6 +129,6 @@ func (c *Conn) BackendSetHealth(pattern string, state ProbeHealth) error {
 	default:
 		return fmt.Errorf("invalid health state: %v", state)
 	}
-	_, err := c.Ask("backend.set_health", pattern, stateStr)
+	_, err := c.Ask(ctx, "backend.set_health", pattern, stateStr)
 	return err
 }

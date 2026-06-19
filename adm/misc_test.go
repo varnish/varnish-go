@@ -1,6 +1,7 @@
 package adm_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 	"time"
@@ -16,7 +17,7 @@ func TestStatus(t *testing.T) {
 	v := vtest.New().VclString(baseVCL).AssertStart(t)
 	defer v.Stop()
 
-	status, err := v.AdmConn().Status()
+	status, err := v.AdmConn().Status(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +31,7 @@ func TestPing(t *testing.T) {
 	v := vtest.New().VclString(baseVCL).AssertStart(t)
 	defer v.Stop()
 
-	if err := v.AdmConn().Ping(); err != nil {
+	if err := v.AdmConn().Ping(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -40,7 +41,7 @@ func TestPID(t *testing.T) {
 	v := vtest.New().VclString(baseVCL).AssertStart(t)
 	defer v.Stop()
 
-	pid, err := v.AdmConn().PID()
+	pid, err := v.AdmConn().PID(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +59,7 @@ func TestBanner(t *testing.T) {
 	v := vtest.New().VclString(baseVCL).AssertStart(t)
 	defer v.Stop()
 
-	banner, err := v.AdmConn().Banner()
+	banner, err := v.AdmConn().Banner(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,8 +76,9 @@ sub vcl_recv { vtc.panic("test panic"); }`
 	v := vtest.New().VclString(panicVCL).AssertStart(t)
 	defer v.Stop()
 	conn := v.AdmConn()
+	ctx := context.Background()
 
-	msg, err := conn.PanicShow()
+	msg, err := conn.PanicShow(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,14 +90,14 @@ sub vcl_recv { vtc.panic("test panic"); }`
 
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
-		status, _ := conn.Status()
+		status, _ := conn.Status(ctx)
 		if status == "stopped" {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	msg, err = conn.PanicShow()
+	msg, err = conn.PanicShow(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,14 +105,14 @@ sub vcl_recv { vtc.panic("test panic"); }`
 		t.Error("expected panic message after vtc.panic(), got empty string")
 	}
 
-	if err := conn.PanicClear(false); err != nil {
+	if err := conn.PanicClear(ctx, false); err != nil {
 		t.Fatal(err)
 	}
-	if err := conn.PanicClear(true); err != nil {
+	if err := conn.PanicClear(ctx, true); err != nil {
 		t.Fatal(err)
 	}
 
-	msg, err = conn.PanicShow()
+	msg, err = conn.PanicShow(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,11 +126,12 @@ func TestStopStart(t *testing.T) {
 	v := vtest.New().VclString(baseVCL).AssertStart(t)
 	defer v.Stop()
 	conn := v.AdmConn()
+	ctx := context.Background()
 
-	if err := conn.Stop(); err != nil {
+	if err := conn.Stop(ctx); err != nil {
 		t.Fatal(err)
 	}
-	status, err := conn.Status()
+	status, err := conn.Status(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,10 +139,10 @@ func TestStopStart(t *testing.T) {
 		t.Errorf("after Stop: got %q, want \"stopped\"", status)
 	}
 
-	if err := conn.Start(); err != nil {
+	if err := conn.Start(ctx); err != nil {
 		t.Fatal(err)
 	}
-	status, err = conn.Status()
+	status, err = conn.Status(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,11 +157,11 @@ func TestQuit(t *testing.T) {
 	defer v.Stop()
 
 	// open a separate connection — Quit closes it, so we must not use AdmConn()
-	conn, err := adm.Connect(v.Name())
+	conn, err := adm.Connect(context.Background(), v.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := conn.Quit(); err != nil {
+	if err := conn.Quit(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 }

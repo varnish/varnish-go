@@ -1,6 +1,7 @@
 package adm
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -43,12 +44,12 @@ type tlsCertListVE struct {
 }
 
 // TLSCertList returns all currently loaded TLS certificate bindings.
-func (c *Conn) TLSCertList() ([]TLSCertEntry, error) {
-	msg, err := c.Ask("tls.cert.list", "-j")
+func (c *Conn) TLSCertList(ctx context.Context) ([]TLSCertEntry, error) {
+	version, err := c.Version(ctx)
 	if err != nil {
 		return nil, err
 	}
-	version, err := c.Version()
+	msg, err := c.Ask(ctx, "tls.cert.list", "-j")
 	if err != nil {
 		return nil, err
 	}
@@ -86,8 +87,8 @@ func parseTLSCertListVE(msg string) ([]TLSCertEntry, error) {
 }
 
 // TLSCertDiscard marks the certificate with the given ID for removal from all frontends.
-func (c *Conn) TLSCertDiscard(id string) error {
-	_, err := c.Ask("tls.cert.discard", id)
+func (c *Conn) TLSCertDiscard(ctx context.Context, id string) error {
+	_, err := c.Ask(ctx, "tls.cert.discard", id)
 	return err
 }
 
@@ -221,7 +222,7 @@ func TLSWithServerCipherOrder() TLSOption {
 }
 
 // TLSCertLoad stages a TLS certificate from certFile for commit.
-func (c *Conn) TLSCertLoad(certFile string, opts ...TLSOption) error {
+func (c *Conn) TLSCertLoad(ctx context.Context, certFile string, opts ...TLSOption) error {
 	var a tlsCertArgs
 	for _, o := range opts {
 		if err := o(&a); err != nil {
@@ -254,18 +255,18 @@ func (c *Conn) TLSCertLoad(certFile string, opts ...TLSOption) error {
 	if a.serverOrder {
 		args = append(args, "-o")
 	}
-	_, err := c.Ask(args...)
+	_, err := c.Ask(ctx, args...)
 	return err
 }
 
 // TLSCertCommit applies all staged TLS certificate changes.
-func (c *Conn) TLSCertCommit() error {
-	_, err := c.Ask("tls.cert.commit")
+func (c *Conn) TLSCertCommit(ctx context.Context) error {
+	_, err := c.Ask(ctx, "tls.cert.commit")
 	return err
 }
 
 // TLSCertRollback discards all staged TLS certificate changes.
-func (c *Conn) TLSCertRollback() error {
-	_, err := c.Ask("tls.cert.rollback")
+func (c *Conn) TLSCertRollback(ctx context.Context) error {
+	_, err := c.Ask(ctx, "tls.cert.rollback")
 	return err
 }

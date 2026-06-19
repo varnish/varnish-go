@@ -1,6 +1,7 @@
 package adm
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -107,8 +108,8 @@ func (e *VCLEntry) UnmarshalJSON(data []byte) error {
 }
 
 // VCLList returns all loaded VCL configurations and labels, keyed by name.
-func (c *Conn) VCLList() (map[string]VCLEntry, error) {
-	msg, err := c.Ask("vcl.list", "-j")
+func (c *Conn) VCLList(ctx context.Context) (map[string]VCLEntry, error) {
+	msg, err := c.Ask(ctx, "vcl.list", "-j")
 	if err != nil {
 		return nil, err
 	}
@@ -130,8 +131,8 @@ type vclDepRaw struct {
 
 // VCLDeps returns dependency information for all loaded VCL configurations,
 // keyed by VCL name with the list of names it directly depends on as the value.
-func (c *Conn) VCLDeps() (map[string][]string, error) {
-	msg, err := c.Ask("vcl.deps", "-j")
+func (c *Conn) VCLDeps(ctx context.Context) (map[string][]string, error) {
+	msg, err := c.Ask(ctx, "vcl.deps", "-j")
 	if err != nil {
 		return nil, err
 	}
@@ -148,35 +149,35 @@ func (c *Conn) VCLDeps() (map[string][]string, error) {
 
 // VCLLoad compiles and loads the VCL file at path under the given name.
 // state controls the initial temperature; VCLStateAuto lets varnishd decide.
-func (c *Conn) VCLLoad(name, file string, state VCLState) error {
-	_, err := c.Ask("vcl.load", name, file, state.String())
+func (c *Conn) VCLLoad(ctx context.Context, name, file string, state VCLState) error {
+	_, err := c.Ask(ctx, "vcl.load", name, file, state.String())
 	return err
 }
 
 // VCLInline compiles and loads VCL source inline under the given name.
 // state controls the initial temperature; VCLStateAuto lets varnishd decide.
 // Uses heredoc syntax to support multi-line VCL content.
-func (c *Conn) VCLInline(name, vcl string, state VCLState) error {
+func (c *Conn) VCLInline(ctx context.Context, name, vcl string, state VCLState) error {
 	marker := fmt.Sprintf("HEREDOC_%016X", rand.Uint64())
 	args := []string{"vcl.inline", name + " << " + marker + "\n", vcl, "\n" + marker}
 	if state != VCLStateAuto {
 		args = append(args, state.String())
 	}
-	_, err := c.Ask(args...)
+	_, err := c.Ask(ctx, args...)
 	return err
 }
 
 // VCLUse switches the active VCL to the named configuration or label.
-func (c *Conn) VCLUse(name string) error {
-	_, err := c.Ask("vcl.use", name)
+func (c *Conn) VCLUse(ctx context.Context, name string) error {
+	_, err := c.Ask(ctx, "vcl.use", name)
 	return err
 }
 
 // VCLDiscard unloads named configurations and labels. Each name is discarded
 // individually; if any fails, the remaining names are not attempted.
-func (c *Conn) VCLDiscard(names ...string) error {
+func (c *Conn) VCLDiscard(ctx context.Context, names ...string) error {
 	for _, name := range names {
-		if _, err := c.Ask("vcl.discard", name); err != nil {
+		if _, err := c.Ask(ctx, "vcl.discard", name); err != nil {
 			return err
 		}
 	}
@@ -184,14 +185,14 @@ func (c *Conn) VCLDiscard(names ...string) error {
 }
 
 // VCLLabel applies a symbolic label to a named VCL configuration.
-func (c *Conn) VCLLabel(label, configname string) error {
-	_, err := c.Ask("vcl.label", label, configname)
+func (c *Conn) VCLLabel(ctx context.Context, label, configname string) error {
+	_, err := c.Ask(ctx, "vcl.label", label, configname)
 	return err
 }
 
 // VCLSetState forces the temperature state of a named VCL configuration.
-func (c *Conn) VCLSetState(name string, state VCLState) error {
-	_, err := c.Ask("vcl.state", name, state.String())
+func (c *Conn) VCLSetState(ctx context.Context, name string, state VCLState) error {
+	_, err := c.Ask(ctx, "vcl.state", name, state.String())
 	return err
 }
 
@@ -205,12 +206,12 @@ type VCLFile struct {
 // VCLShow returns the source files of the named VCL configuration.
 // If name is empty, shows the active VCL.
 // Returns one VCLFile per source file (main VCL and all includes) in encounter order.
-func (c *Conn) VCLShow(name string) ([]VCLFile, error) {
+func (c *Conn) VCLShow(ctx context.Context, name string) ([]VCLFile, error) {
 	args := []string{"vcl.show", "-v"}
 	if name != "" {
 		args = append(args, name)
 	}
-	src, err := c.Ask(args...)
+	src, err := c.Ask(ctx, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -250,6 +251,6 @@ func parseVCLShow(s string) ([]VCLFile, error) {
 }
 
 // VCLSymtab dumps the VCL symbol tables for debugging.
-func (c *Conn) VCLSymtab() (string, error) {
-	return c.Ask("vcl.symtab")
+func (c *Conn) VCLSymtab(ctx context.Context) (string, error) {
+	return c.Ask(ctx, "vcl.symtab")
 }

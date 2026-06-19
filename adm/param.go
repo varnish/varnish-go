@@ -1,6 +1,9 @@
 package adm
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 // ParamInfo describes a single varnishd runtime parameter and its current value.
 type ParamInfo struct {
@@ -16,21 +19,21 @@ type ParamInfo struct {
 }
 
 // ParamShow returns all varnishd runtime parameters.
-func (c *Conn) ParamShow() (map[string]ParamInfo, error) {
-	return paramShow(c, false)
+func (c *Conn) ParamShow(ctx context.Context) (map[string]ParamInfo, error) {
+	return paramShow(ctx, c, false)
 }
 
 // ParamShowChanged returns only parameters whose values differ from their compiled-in defaults.
-func (c *Conn) ParamShowChanged() (map[string]ParamInfo, error) {
-	return paramShow(c, true)
+func (c *Conn) ParamShowChanged(ctx context.Context) (map[string]ParamInfo, error) {
+	return paramShow(ctx, c, true)
 }
 
-func paramShow(c *Conn, changed bool) (map[string]ParamInfo, error) {
+func paramShow(ctx context.Context, c *Conn, changed bool) (map[string]ParamInfo, error) {
 	args := []string{"param.show", "-j"}
 	if changed {
 		args = append(args, "changed")
 	}
-	msg, err := c.Ask(args...)
+	msg, err := c.Ask(ctx, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -46,8 +49,8 @@ func paramShow(c *Conn, changed bool) (map[string]ParamInfo, error) {
 }
 
 // ParamSet sets a runtime parameter to value and returns its updated info.
-func (c *Conn) ParamSet(param, value string) (ParamInfo, error) {
-	msg, err := c.Ask("param.set", "-j", param, value)
+func (c *Conn) ParamSet(ctx context.Context, param, value string) (ParamInfo, error) {
+	msg, err := c.Ask(ctx, "param.set", "-j", param, value)
 	if err != nil {
 		return ParamInfo{}, err
 	}
@@ -55,15 +58,15 @@ func (c *Conn) ParamSet(param, value string) (ParamInfo, error) {
 }
 
 // ParamReset resets a runtime parameter to its compiled-in default and returns its updated info.
-func (c *Conn) ParamReset(param string) (ParamInfo, error) {
-	status, msg, err := c.AskRaw("param.reset", "-j", param)
+func (c *Conn) ParamReset(ctx context.Context, param string) (ParamInfo, error) {
+	status, msg, err := c.AskRaw(ctx, "param.reset", "-j", param)
 	if err != nil {
 		return ParamInfo{}, err
 	}
 	if status == 102 {
 		// Some varnishd editions return 102 "JSON unimplemented" for param.reset -j.
 		// Fall back to plain text and return minimal info.
-		if _, err := c.Ask("param.reset", param); err != nil {
+		if _, err := c.Ask(ctx, "param.reset", param); err != nil {
 			return ParamInfo{}, err
 		}
 		return ParamInfo{Name: param}, nil
