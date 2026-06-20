@@ -1,6 +1,7 @@
 package adm_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -17,7 +18,7 @@ func TestBackendList(t *testing.T) {
 	v := vtest.New().Backend("svr", svr.URL).AssertStart(t)
 	defer v.Stop()
 
-	backends, err := v.AdmConn().BackendList()
+	backends, err := v.AdmConn().BackendList(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,21 +46,22 @@ func TestBackendSetHealth(t *testing.T) {
 	v := vtest.New().Backend("svr", svr.URL).AssertStart(t)
 	defer v.Stop()
 	conn := v.AdmConn()
+	ctx := context.Background()
 
 	for _, state := range []adm.ProbeHealth{adm.ProbeHealthy, adm.ProbeSick, adm.ProbeProbe} {
-		if err := conn.BackendSetHealth("vcl1.svr", state); err != nil {
+		if err := conn.BackendSetHealth(ctx, "vcl1.svr", state); err != nil {
 			t.Errorf("BackendSetHealth(vcl1.svr, %v): %v", state, err)
 		}
 	}
 
 	// pattern validation errors
 	for _, bad := range []string{"nodot", "too.many.dots", "inv@lid.pattern"} {
-		if err := conn.BackendSetHealth(bad, adm.ProbeHealthy); err == nil {
+		if err := conn.BackendSetHealth(ctx, bad, adm.ProbeHealthy); err == nil {
 			t.Errorf("expected error for pattern %q, got nil", bad)
 		}
 	}
 	// ProbeUnknown is invalid
-	if err := conn.BackendSetHealth("vcl1.svr", adm.ProbeUnknown); err == nil {
+	if err := conn.BackendSetHealth(ctx, "vcl1.svr", adm.ProbeUnknown); err == nil {
 		t.Error("expected error for ProbeUnknown state, got nil")
 	}
 }

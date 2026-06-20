@@ -153,6 +153,25 @@ In code comments and documentation, use full product names:
 
 ---
 
+## Changelog
+
+`CHANGELOG.md` uses this format:
+
+```
+## v0.0.X — YYYY-MM-DD
+
+- **Label**: `package` — description; additional detail if needed
+```
+
+**Labels** (bold): `Breaking`, `New`, `Fix`, `Changed`, `CI`.
+
+Rules:
+- One bullet per logical change. Separate label, package, and description with ` — `.
+- Unreleased work goes under the current version header, not an "Unreleased" section.
+- Bump the version number in the header when cutting a release.
+
+---
+
 ## CI
 
 Two matrix variants in `.github/workflows/ci.yml`, each running:

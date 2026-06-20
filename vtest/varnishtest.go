@@ -7,6 +7,7 @@
 package vtest
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -289,7 +290,7 @@ func (vb *VarnishBuilder) Start() (varnish Varnish, err error) {
 		}
 		ch := make(chan acceptResult, 1)
 		go func() {
-			c, e := adm.Accept(sock, filepath.Join(name, "_.secret"))
+			c, e := adm.Accept(context.Background(), sock, filepath.Join(name, "_.secret"))
 			ch <- acceptResult{c, e}
 		}()
 		select {
@@ -444,13 +445,13 @@ func (v *Varnish) WaitRunning() error {
 // AdmRaw sends a command to the admin socket, with more control and less convenience.
 // It's just a passthrough for [adm.Conn.AskRaw].
 func (v *Varnish) AdmRaw(args ...string) (int, []byte, error) {
-	return v.conn.AskRaw(args...)
+	return v.conn.AskRaw(context.Background(), args...)
 }
 
 // Adm sends a command to the admin socket.
 // It's just a passthrough for [adm.Conn.Ask].
 func (v *Varnish) Adm(args ...string) (string, error) {
-	return v.conn.Ask(args...)
+	return v.conn.Ask(context.Background(), args...)
 }
 
 // AdmConn returns a pointer to the underlying admin connection.

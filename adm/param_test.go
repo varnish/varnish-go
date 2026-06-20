@@ -1,6 +1,7 @@
 package adm_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/varnish/varnish-go/vtest"
@@ -11,7 +12,7 @@ func TestParamShow(t *testing.T) {
 	v := vtest.New().VclString(baseVCL).AssertStart(t)
 	defer v.Stop()
 
-	params, err := v.AdmConn().ParamShow()
+	params, err := v.AdmConn().ParamShow(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,7 +30,7 @@ func TestParamShowChanged(t *testing.T) {
 	defer v.Stop()
 
 	// vtest may have changed some params; just verify the call succeeds
-	_, err := v.AdmConn().ParamShowChanged()
+	_, err := v.AdmConn().ParamShowChanged(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,9 +41,10 @@ func TestParamSetReset(t *testing.T) {
 	v := vtest.New().VclString(baseVCL).AssertStart(t)
 	defer v.Stop()
 	conn := v.AdmConn()
+	ctx := context.Background()
 
 	// ParamInfo{Name: "workspace_client", Value: "128k"}
-	updated, err := conn.ParamSet("workspace_client", "128k")
+	updated, err := conn.ParamSet(ctx, "workspace_client", "128k")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +53,7 @@ func TestParamSetReset(t *testing.T) {
 	}
 
 	// ParamInfo{Name: "workspace_client", Value: <default>}
-	reset, err := conn.ParamReset("workspace_client")
+	reset, err := conn.ParamReset(ctx, "workspace_client")
 	if err != nil {
 		t.Fatal(err)
 	}

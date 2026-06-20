@@ -17,6 +17,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"context"
 	"testing"
 	"time"
 
@@ -170,12 +171,12 @@ func TestAdm(t *testing.T) {
 	}
 
 	// ask directly via adm
-	conn, err := adm.Connect(varnish.Name())
+	conn, err := adm.Connect(context.Background(), varnish.Name())
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	msg, err = conn.Ask("ping")
+	msg, err = conn.Ask(context.Background(), "ping")
 	if err != nil {
 		t.Error(err)
 		return

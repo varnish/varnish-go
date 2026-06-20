@@ -1,6 +1,7 @@
 package adm_test
 
 import (
+	"context"
 	"fmt"
 	"github.com/varnish/varnish-go/adm"
 )
@@ -8,11 +9,11 @@ import (
 // Check the running state of the child
 func Example() {
 	// use the default instance (/usr/bin/varnish/varnishd)
-	conn, err := adm.Connect("")
+	conn, err := adm.Connect(context.Background(), "")
 	if err != nil {
 		panic(err)
 	}
-	response, err := conn.Ask("status")
+	response, err := conn.Ask(context.Background(), "status")
 	if err != nil {
 		panic(err)
 	}
@@ -22,7 +23,7 @@ func Example() {
 // Connect to an instance with a non-default workdir
 func ExampleConnect() {
 	// using a specific name (use the same argument as "-n" for varnishd)
-	conn, err := adm.Connect("/tmp/varnish_test_instances")
+	conn, err := adm.Connect(context.Background(), "/tmp/varnish_test_instances")
 	if err != nil {
 		panic(err)
 	}
