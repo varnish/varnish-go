@@ -117,7 +117,7 @@ type Varnish struct {
 
 	cmd     *exec.Cmd
 	name    string
-	conn    adm.Conn
+	conn    *adm.Conn
 	logs    *logState
 	syslogs *syslogState
 }
@@ -282,10 +282,10 @@ func (vb *VarnishBuilder) Start() (varnish Varnish, err error) {
 	ss.start(pr, cmd.Wait)
 	vb.syslogs = ss
 
-	var conn adm.Conn
+	var conn *adm.Conn
 	{
 		type acceptResult struct {
-			conn adm.Conn
+			conn *adm.Conn
 			err  error
 		}
 		ch := make(chan acceptResult, 1)
@@ -454,9 +454,9 @@ func (v *Varnish) Adm(args ...string) (string, error) {
 	return v.conn.Ask(context.Background(), args...)
 }
 
-// AdmConn returns a pointer to the underlying admin connection.
+// AdmConn returns the underlying admin connection.
 func (v *Varnish) AdmConn() *adm.Conn {
-	return &v.conn
+	return v.conn
 }
 
 // CounterChecker is a fluent builder for polling a Varnish stat counter until a condition is met.

@@ -147,6 +147,9 @@ docker rm -f varnish-plus-test
 
 ## Conventions
 
+Spell out field and variable names — do not use abbreviations or single-letter
+suffixes.
+
 In code comments and documentation, use full product names:
 - **"Varnish Cache"** — not CE, VC, OSS, or "open-source Varnish"
 - **"Varnish Enterprise"** — not VE, Plus, or "Varnish Plus"

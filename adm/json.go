@@ -15,7 +15,7 @@ func parseJSONItems[T any](msg string) ([]T, error) {
 	if len(raw) < 3 {
 		return nil, fmt.Errorf("unexpected response format: %s", msg)
 	}
-	var items []T
+	items := make([]T, 0, len(raw)-3)
 	for _, r := range raw[3:] {
 		var item T
 		if err := json.Unmarshal(r, &item); err != nil {
@@ -36,6 +36,10 @@ func parseJSONSingle[T any](msg string) (T, error) {
 	if len(items) == 0 {
 		var zero T
 		return zero, fmt.Errorf("unexpected empty response")
+	}
+	if len(items) > 1 {
+		var zero T
+		return zero, fmt.Errorf("expected single item, got %d", len(items))
 	}
 	return items[0], nil
 }

@@ -1,7 +1,6 @@
 package adm_test
 
 import (
-	"context"
 	"net/http"
 	"testing"
 	"time"
@@ -17,7 +16,7 @@ func TestStatus(t *testing.T) {
 	v := vtest.New().VclString(baseVCL).AssertStart(t)
 	defer v.Stop()
 
-	status, err := v.AdmConn().Status(context.Background())
+	status, err := v.AdmConn().Status(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,7 +30,7 @@ func TestPing(t *testing.T) {
 	v := vtest.New().VclString(baseVCL).AssertStart(t)
 	defer v.Stop()
 
-	if err := v.AdmConn().Ping(context.Background()); err != nil {
+	if err := v.AdmConn().Ping(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -41,7 +40,7 @@ func TestPID(t *testing.T) {
 	v := vtest.New().VclString(baseVCL).AssertStart(t)
 	defer v.Stop()
 
-	pid, err := v.AdmConn().PID(context.Background())
+	pid, err := v.AdmConn().PID(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +58,7 @@ func TestBanner(t *testing.T) {
 	v := vtest.New().VclString(baseVCL).AssertStart(t)
 	defer v.Stop()
 
-	banner, err := v.AdmConn().Banner(context.Background())
+	banner, err := v.AdmConn().Banner(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +75,7 @@ sub vcl_recv { vtc.panic("test panic"); }`
 	v := vtest.New().VclString(panicVCL).AssertStart(t)
 	defer v.Stop()
 	conn := v.AdmConn()
-	ctx := context.Background()
+	ctx := t.Context()
 
 	msg, err := conn.PanicShow(ctx)
 	if err != nil {
@@ -86,7 +85,9 @@ sub vcl_recv { vtc.panic("test panic"); }`
 		t.Fatalf("expected no panic initially, got %q", msg)
 	}
 
-	http.Get(v.URL) //nolint:errcheck
+	if resp, err := http.Get(v.URL); err == nil {
+		resp.Body.Close()
+	}
 
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
@@ -126,7 +127,7 @@ func TestStopStart(t *testing.T) {
 	v := vtest.New().VclString(baseVCL).AssertStart(t)
 	defer v.Stop()
 	conn := v.AdmConn()
-	ctx := context.Background()
+	ctx := t.Context()
 
 	if err := conn.Stop(ctx); err != nil {
 		t.Fatal(err)
@@ -157,11 +158,11 @@ func TestQuit(t *testing.T) {
 	defer v.Stop()
 
 	// open a separate connection — Quit closes it, so we must not use AdmConn()
-	conn, err := adm.Connect(context.Background(), v.Name())
+	conn, err := adm.Connect(t.Context(), v.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := conn.Quit(context.Background()); err != nil {
+	if err := conn.Quit(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 }

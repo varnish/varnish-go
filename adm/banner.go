@@ -23,9 +23,14 @@ var bannerVersionRE = regexp.MustCompile(`^(varnish(?:-plus)?)-(\S+)\s+revision\
 // Version returns version information from the Varnish admin banner.
 // The result is cached after the first successful call.
 func (c *Conn) Version(ctx context.Context) (BannerVersion, error) {
+	c.versionMutex.Lock()
 	if c.cachedVersion != nil {
-		return *c.cachedVersion, nil
+		v := *c.cachedVersion
+		c.versionMutex.Unlock()
+		return v, nil
 	}
+	c.versionMutex.Unlock()
+
 	msg, err := c.Ask(ctx, "banner")
 	if err != nil {
 		return BannerVersion{}, err
@@ -40,8 +45,13 @@ func (c *Conn) Version(ctx context.Context) (BannerVersion, error) {
 			Version:      m[2],
 			Revision:     m[3],
 		}
-		c.cachedVersion = &v
-		return v, nil
+		c.versionMutex.Lock()
+		if c.cachedVersion == nil {
+			c.cachedVersion = &v
+		}
+		result := *c.cachedVersion
+		c.versionMutex.Unlock()
+		return result, nil
 	}
 	return BannerVersion{}, fmt.Errorf("adm.Version: no version line found in banner")
 }
