@@ -1,7 +1,6 @@
 package adm_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/varnish/varnish-go/vtest"
@@ -12,7 +11,7 @@ func TestBanListBan(t *testing.T) {
 	v := vtest.New().VclString(baseVCL).AssertStart(t)
 	defer v.Stop()
 	conn := v.AdmConn()
-	ctx := context.Background()
+	ctx := t.Context()
 
 	if err := conn.Ban(ctx, "req.url ~ /test"); err != nil {
 		t.Fatal(err)

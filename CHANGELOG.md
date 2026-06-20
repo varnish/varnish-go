@@ -1,10 +1,18 @@
 # Changelog
 
-## v0.1.1 — 2026-06-19
+## v0.1.0 — 2026-06-20
 
 - **Breaking**: all `adm.Conn` methods, `Connect`, `ConnectRaw`, and `Accept` now take `context.Context` as their first argument; context deadline is forwarded to the connection, and cancellation interrupts in-progress I/O by expiring the connection deadline
+- **Breaking**: `adm` — `Connect`, `ConnectRaw`, and `Accept` now return `*Conn` instead of `Conn`; eliminates copying of non-copyable sync primitives
+
 - **New**: `adm.Conn.Version()` — queries the admin banner and returns `BannerVersion` with `IsEnterprise bool`, `Version string`, and `Revision string`; errors if the version line cannot be parsed
 - **New**: `adm.TLSCertEntry` — extended with Varnish Enterprise fields (`Name`, `Expiry`, `Staple`, `ClientVerify`, `CRL`); `TLSCertList` now parses both Varnish Cache (flat array) and Varnish Enterprise (nested `frontends`/`fqdns`) output, branching on `Conn.Version()`
+- 
+- **Fix**: `adm` — `VCLInline` heredoc marker is now derived from the SHA256 of the VCL content; a random marker could collide with content, truncating the upload
+- **Fix**: `adm` — `BackendSetHealth` no longer requires exactly one dot in the pattern; `*` alone is valid and selects all backends
+- **Fix**: `adm` — removed debug `fmt.Printf` from the secret-file read failure path in `authenticate`; the error was printed to stdout instead of being returned
+- **Fix**: `adm` — `BackendList` and `BanList` timestamp conversion now applies `math.Round` before truncating nanoseconds to avoid floating-point precision loss
+- **Fix**: `adm` — `parseJSONSingle` now returns an error if the server sends more than one item instead of silently discarding extras
 
 ## v0.0.14 — 2026-06-16
 

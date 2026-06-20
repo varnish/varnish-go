@@ -3,6 +3,7 @@ package adm
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"time"
 )
 
@@ -27,7 +28,8 @@ func (e *BanEntry) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	sec := int64(raw.Time)
-	e.Time = time.Unix(sec, int64((raw.Time-float64(sec))*1e9))
+	nsec := int64(math.Round((raw.Time - float64(sec)) * 1e9))
+	e.Time = time.Unix(sec, nsec)
 	e.Refs = raw.Refs
 	e.Completed = raw.Completed
 	e.Spec = raw.Spec

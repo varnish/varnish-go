@@ -2,9 +2,9 @@ package adm
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"strconv"
 	"strings"
 )
@@ -158,7 +158,8 @@ func (c *Conn) VCLLoad(ctx context.Context, name, file string, state VCLState) e
 // state controls the initial temperature; VCLStateAuto lets varnishd decide.
 // Uses heredoc syntax to support multi-line VCL content.
 func (c *Conn) VCLInline(ctx context.Context, name, vcl string, state VCLState) error {
-	marker := fmt.Sprintf("HEREDOC_%016X", rand.Uint64())
+	h := sha256.Sum256([]byte(vcl))
+	marker := fmt.Sprintf("HEREDOC_%X", h[:8])
 	args := []string{"vcl.inline", name + " << " + marker + "\n", vcl, "\n" + marker}
 	if state != VCLStateAuto {
 		args = append(args, state.String())

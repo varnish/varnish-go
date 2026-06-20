@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"regexp"
 	"strings"
 	"time"
@@ -92,11 +93,12 @@ func (c *Conn) BackendList(ctx context.Context) (map[string]BackendEntry, error)
 	result := make(map[string]BackendEntry, len(rawMap))
 	for fullName, d := range rawMap {
 		sec := int64(d.LastChange)
+		nsec := int64(math.Round((d.LastChange - float64(sec)) * 1e9))
 		e := BackendEntry{
 			FullName:   fullName,
 			Admin:      probeHealthFromString(d.AdminHealth),
 			Probe:      d.Probe,
-			LastChange: time.Unix(sec, int64((d.LastChange-float64(sec))*1e9)),
+			LastChange: time.Unix(sec, nsec),
 		}
 		if i := strings.IndexByte(fullName, '.'); i >= 0 {
 			e.VCL = fullName[:i]
@@ -112,11 +114,11 @@ func (c *Conn) BackendList(ctx context.Context) (map[string]BackendEntry, error)
 var backendPatternRE = regexp.MustCompile(`^[A-Za-z0-9._*]+$`)
 
 // BackendSetHealth sets the health state of all backends matching pattern.
-// pattern must contain only [A-Za-z0-9._*] and exactly one dot (e.g. "vcl1.*", "*.default").
+// pattern must contain only [A-Za-z0-9._*] characters (e.g. "*", "vcl1.*", "*.default").
 // state must not be ProbeUnknown; ProbeProbe maps to "auto" (probe-determined).
 func (c *Conn) BackendSetHealth(ctx context.Context, pattern string, state ProbeHealth) error {
-	if !backendPatternRE.MatchString(pattern) || strings.Count(pattern, ".") != 1 {
-		return fmt.Errorf("invalid backend pattern %q: must match [A-Za-z0-9._*]+ with exactly one dot", pattern)
+	if !backendPatternRE.MatchString(pattern) {
+		return fmt.Errorf("invalid backend pattern %q: must match [A-Za-z0-9._*]+", pattern)
 	}
 	var stateStr string
 	switch state {

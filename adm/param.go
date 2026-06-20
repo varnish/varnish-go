@@ -72,7 +72,7 @@ func (c *Conn) ParamReset(ctx context.Context, param string) (ParamInfo, error) 
 		return ParamInfo{Name: param}, nil
 	}
 	if status != 200 {
-		return ParamInfo{}, fmt.Errorf("command: param.reset -j %s\nfailed with %d status and message message:\n%s", param, status, string(msg))
+		return ParamInfo{}, fmt.Errorf("command: param.reset -j %s\nfailed with %d status and message:\n%s", param, status, string(msg))
 	}
 	return parseJSONSingle[ParamInfo](string(msg))
 }

@@ -21,6 +21,7 @@ import (
 // An open connection to varnishd's admin socket.
 type Conn struct {
 	net.Conn
+	versionMutex     sync.Mutex
 	cachedVersion *BannerVersion
 }
 
@@ -51,8 +52,13 @@ func (conn *Conn) withContext(ctx context.Context, fn func() error) error {
 		case <-done:
 		}
 	}()
-	defer conn.SetDeadline(time.Time{}) // restore no-deadline; runs after wg.Wait() below (LIFO)
-	defer func() { close(done); wg.Wait() }()
+	defer func() {
+		close(done)
+		wg.Wait()
+		if ctx.Err() == nil {
+			conn.SetDeadline(time.Time{}) // restore no-deadline only when context is still valid
+		}
+	}()
 
 	err := fn()
 	if ctx.Err() != nil {
@@ -145,7 +151,6 @@ func (conn *Conn) authenticate(ctx context.Context, secretPath string) (err erro
 
 	secret, err := os.ReadFile(secretPath)
 	if err != nil {
-		fmt.Printf("arg: %s: %s\n", secretPath, err)
 		conn.Close()
 		return
 	}
@@ -161,47 +166,47 @@ func (conn *Conn) authenticate(ctx context.Context, secretPath string) (err erro
 }
 
 // Connect opens a [Conn] using the name of the target Varnish (varnishd's "-n" argument).
-func Connect(ctx context.Context, name string) (conn Conn, err error) {
+func Connect(ctx context.Context, name string) (*Conn, error) {
 	addrPorts, secretPath, err := findEndpointData(name)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	if len(addrPorts) == 0 {
-		err = fmt.Errorf("no available endpoint for %s", name)
-		return
+		return nil, fmt.Errorf("no available endpoint for %s", name)
 	}
 
+	var lastErr error
 	for _, addrPort := range addrPorts {
-		conn, err = ConnectRaw(ctx, addrPort, secretPath)
-		// if everything went well, return what we have
+		conn, err := ConnectRaw(ctx, addrPort, secretPath)
 		if err == nil {
-			return
+			return conn, nil
 		}
+		lastErr = err
 	}
-	return
+	return nil, lastErr
 }
 
 // ConnectRaw is the same as [Connect], but you need to provide the endpoint and path to the secret file.
 // Those correspond to the "-T" and "-S" varnishd arguments respectively.
-func ConnectRaw(ctx context.Context, addrPort netip.AddrPort, secretPath string) (conn Conn, err error) {
+func ConnectRaw(ctx context.Context, addrPort netip.AddrPort, secretPath string) (*Conn, error) {
 	connInner, err := (&net.Dialer{}).DialContext(ctx, "tcp", addrPort.String())
 	if err != nil {
-		return
+		return nil, err
 	}
-	conn = Conn{Conn: connInner}
+	conn := &Conn{Conn: connInner}
 	if err = conn.authenticate(ctx, secretPath); err != nil {
 		conn.Close()
-		conn = Conn{}
+		return nil, err
 	}
-	return
+	return conn, nil
 }
 
 // Accept is the same as [ConnectRaw] but expects a [net.Listener] that corresponds to the varnishd's "-m" argument.
 // ctx cancellation unblocks the Accept call when the listener implements SetDeadline (e.g. *net.TCPListener).
-func Accept(ctx context.Context, sock net.Listener, secretPath string) (conn Conn, err error) {
+func Accept(ctx context.Context, sock net.Listener, secretPath string) (*Conn, error) {
 	if ctx.Err() != nil {
-		return conn, ctx.Err()
+		return nil, ctx.Err()
 	}
 
 	dl, _ := sock.(interface{ SetDeadline(time.Time) error })
@@ -242,16 +247,16 @@ func Accept(ctx context.Context, sock net.Listener, secretPath string) (conn Con
 	connInner, err := sock.Accept()
 	if err != nil {
 		if ctx.Err() != nil {
-			return conn, ctx.Err()
+			return nil, ctx.Err()
 		}
-		return
+		return nil, err
 	}
-	conn = Conn{Conn: connInner}
+	conn := &Conn{Conn: connInner}
 	if err = conn.authenticate(ctx, secretPath); err != nil {
 		conn.Close()
-		conn = Conn{}
+		return nil, err
 	}
-	return
+	return conn, nil
 }
 
 // readMessageRaw reads one admin protocol message from the wire without context handling.
@@ -295,7 +300,7 @@ func (conn *Conn) Ask(ctx context.Context, args ...string) (message string, err 
 	})
 	message = string(buf)
 	if err == nil && status != 200 {
-		err = fmt.Errorf("command: %sfailed with %d status and message message:\n%s", command, status, message)
+		err = fmt.Errorf("command: %sfailed with %d status and message:\n%s", command, status, message)
 	}
 	return
 }
