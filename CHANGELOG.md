@@ -7,7 +7,7 @@
 
 - **New**: `adm.Conn.Version()` — queries the admin banner and returns `BannerVersion` with `IsEnterprise bool`, `Version string`, and `Revision string`; errors if the version line cannot be parsed
 - **New**: `adm.TLSCertEntry` — extended with Varnish Enterprise fields (`Name`, `Expiry`, `Staple`, `ClientVerify`, `CRL`); `TLSCertList` now parses both Varnish Cache (flat array) and Varnish Enterprise (nested `frontends`/`fqdns`) output, branching on `Conn.Version()`
-- 
+
 - **Fix**: `adm` — `VCLInline` heredoc marker is now derived from the SHA256 of the VCL content; a random marker could collide with content, truncating the upload
 - **Fix**: `adm` — `BackendSetHealth` no longer requires exactly one dot in the pattern; `*` alone is valid and selects all backends
 - **Fix**: `adm` — removed debug `fmt.Printf` from the secret-file read failure path in `authenticate`; the error was printed to stdout instead of being returned
