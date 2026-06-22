@@ -12,6 +12,25 @@ import (
 	"github.com/varnish/varnish-go/vtest"
 )
 
+func TestBackendEntryMethods(t *testing.T) {
+	t.Parallel()
+	for _, tt := range []struct {
+		vcl, name string
+	}{
+		{"vcl1", "default"},
+		{"boot", "svr"},
+		{"boot", ""},
+	} {
+		b := adm.BackendEntry{VCL: tt.vcl, Name: tt.name}
+		if got := b.VCLName(); got != tt.vcl {
+			t.Errorf("VCLName: got %q, want %q", got, tt.vcl)
+		}
+		if got := b.ShortName(); got != tt.name {
+			t.Errorf("ShortName: got %q, want %q", got, tt.name)
+		}
+	}
+}
+
 func TestBackendList(t *testing.T) {
 	t.Parallel()
 	svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
@@ -80,6 +99,43 @@ backend svr {
 	}
 	if b.LastChange.IsZero() {
 		t.Error("LastChange is zero — last_change/last_updated not parsed")
+	}
+}
+
+func TestBackendListAllVCLs(t *testing.T) {
+	t.Parallel()
+	b1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer b1.Close()
+	b2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer b2.Close()
+
+	v := vtest.New().Backend("b1", b1.URL).AssertStart(t)
+	defer v.Stop()
+	conn := v.AdmConn()
+	ctx := context.Background()
+
+	u, _ := url.Parse(b2.URL)
+	vcl2src := fmt.Sprintf("vcl 4.1;\nbackend b2 { .host = %q; .port = %q; }\n", u.Hostname(), u.Port())
+	if err := conn.VCLInline(ctx, "vcl2", vcl2src, adm.VCLStateAuto); err != nil {
+		t.Fatal(err)
+	}
+	if err := conn.VCLUse(ctx, "vcl2"); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		conn.VCLUse(ctx, "vcl1")
+		conn.VCLDiscard(ctx, "vcl2")
+	}()
+
+	backends, err := conn.BackendList(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := backends["vcl1.b1"]; !ok {
+		t.Error("vcl1.b1 not found — inactive VCL backends missing from BackendList")
+	}
+	if _, ok := backends["vcl2.b2"]; !ok {
+		t.Error("vcl2.b2 not found — active VCL backends missing from BackendList")
 	}
 }
 

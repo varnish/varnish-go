@@ -72,6 +72,12 @@ type BackendEntry struct {
 	LastChange time.Time    // when the health state last changed
 }
 
+// VCLName returns the VCL portion of the backend's full name (everything before the first dot).
+func (e BackendEntry) VCLName() string { return e.VCL }
+
+// ShortName returns the backend portion of the full name (everything after the first dot).
+func (e BackendEntry) ShortName() string { return e.Name }
+
 // backendDetailsRaw is the per-backend JSON object in the backend.list response.
 // Varnish Cache uses probe_message/last_change; Varnish Enterprise uses probe_health/last_updated.
 type backendDetailsRaw struct {
@@ -89,7 +95,7 @@ func (c *Conn) BackendList(ctx context.Context) (map[string]BackendEntry, error)
 	if err != nil {
 		return nil, err
 	}
-	msg, err := c.Ask(ctx, "backend.list", "-j", "-p")
+	msg, err := c.Ask(ctx, "backend.list", "-j", "-p", "*.*")
 	if err != nil {
 		return nil, err
 	}
