@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.1 — 2026-06-22
+
+- **New**: `adm.BackendEntry.VCLName()` — returns the VCL portion of the backend's full name (everything before the first dot)
+- **New**: `adm.BackendEntry.ShortName()` — returns the backend portion of the full name (everything after the first dot)
+- **Fix**: `adm.BackendList` — now lists all the backends instead of just the active vcl's ones
+
 ## v0.1.0 — 2026-06-20
 
 - **Breaking**: all `adm.Conn` methods, `Connect`, `ConnectRaw`, and `Accept` now take `context.Context` as their first argument; context deadline is forwarded to the connection, and cancellation interrupts in-progress I/O by expiring the connection deadline
