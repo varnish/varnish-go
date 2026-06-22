@@ -73,15 +73,22 @@ type BackendEntry struct {
 }
 
 // backendDetailsRaw is the per-backend JSON object in the backend.list response.
+// Varnish Cache uses probe_message/last_change; Varnish Enterprise uses probe_health/last_updated.
 type backendDetailsRaw struct {
-	AdminHealth string       `json:"admin_health"`
-	Probe       *ProbeResult `json:"probe_message"`
-	LastChange  float64      `json:"last_change"`
+	AdminHealth  string       `json:"admin_health"`
+	ProbeMessage *ProbeResult `json:"probe_message"` // Varnish Cache
+	ProbeHealth  *ProbeResult `json:"probe_health"`  // Varnish Enterprise
+	LastChange   float64      `json:"last_change"`   // Varnish Cache
+	LastUpdated  float64      `json:"last_updated"`  // Varnish Enterprise
 }
 
 // BackendList returns all backends keyed by full name (e.g. "vcl1.default").
 // Always issues backend.list -j -p to varnishd (all backends, probe details included).
 func (c *Conn) BackendList(ctx context.Context) (map[string]BackendEntry, error) {
+	version, err := c.Version(ctx)
+	if err != nil {
+		return nil, err
+	}
 	msg, err := c.Ask(ctx, "backend.list", "-j", "-p")
 	if err != nil {
 		return nil, err
@@ -92,12 +99,21 @@ func (c *Conn) BackendList(ctx context.Context) (map[string]BackendEntry, error)
 	}
 	result := make(map[string]BackendEntry, len(rawMap))
 	for fullName, d := range rawMap {
-		sec := int64(d.LastChange)
-		nsec := int64(math.Round((d.LastChange - float64(sec)) * 1e9))
+		var probe *ProbeResult
+		var ts float64
+		if version.IsEnterprise {
+			probe = d.ProbeHealth
+			ts = d.LastUpdated
+		} else {
+			probe = d.ProbeMessage
+			ts = d.LastChange
+		}
+		sec := int64(ts)
+		nsec := int64(math.Round((ts - float64(sec)) * 1e9))
 		e := BackendEntry{
 			FullName:   fullName,
 			Admin:      probeHealthFromString(d.AdminHealth),
-			Probe:      d.Probe,
+			Probe:      probe,
 			LastChange: time.Unix(sec, nsec),
 		}
 		if i := strings.IndexByte(fullName, '.'); i >= 0 {
