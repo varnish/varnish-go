@@ -2,8 +2,10 @@ package adm_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/varnish/varnish-go/adm"
@@ -35,6 +37,49 @@ func TestBackendList(t *testing.T) {
 	}
 	if b.LastChange.IsZero() {
 		t.Error("LastChange is zero")
+	}
+}
+
+
+func TestBackendListProbe(t *testing.T) {
+	t.Parallel()
+	svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer svr.Close()
+
+	u, _ := url.Parse(svr.URL)
+	vcl := fmt.Sprintf(`
+backend svr {
+	.host = %q;
+	.port = %q;
+	.probe = {
+		.url = "/";
+		.timeout = 1s;
+		.interval = 1s;
+		.window = 3;
+		.threshold = 2;
+	}
+}
+`, u.Hostname(), u.Port())
+
+	v := vtest.New().VclString(vcl).AssertStart(t)
+	defer v.Stop()
+
+	backends, err := v.AdmConn().BackendList(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, ok := backends["vcl1.svr"]
+	if !ok {
+		t.Fatal("backend vcl1.svr not found")
+	}
+	if b.Probe == nil {
+		t.Fatal("Probe is nil — probe_message/probe_health not parsed")
+	}
+	if b.Probe.Total == 0 {
+		t.Error("Probe.Total is 0 — window not parsed")
+	}
+	if b.LastChange.IsZero() {
+		t.Error("LastChange is zero — last_change/last_updated not parsed")
 	}
 }
 
