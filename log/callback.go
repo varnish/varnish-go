@@ -9,6 +9,7 @@ package log
 // }
 //
 // static inline int recTag(const uint32_t *ptr) { return (int)VSL_TAG(ptr); }
+// static inline int recLen(const uint32_t *ptr) { return (int)VSL_LEN(ptr); }
 // static inline uint64_t recID(const uint32_t *ptr) { return (uint64_t)VSL_ID(ptr); }
 // static inline const char* recData(const uint32_t *ptr) { return VSL_CDATA(ptr); }
 // static inline int recClient(const uint32_t *ptr) { return VSL_CLIENT(ptr) != 0; }
@@ -49,7 +50,7 @@ func dispatchCallback(_ *C.struct_VSL_data, ctrans **C.struct_VSL_transaction, p
 				VXID:      uint64(C.recID(ptr)),
 				IsClient:  C.recClient(ptr) != 0,
 				IsBackend: C.recBackend(ptr) != 0,
-				Data:      C.GoString(C.recData(ptr)),
+				Data:      C.GoStringN(C.recData(ptr), C.recLen(ptr)),
 			})
 		}
 
