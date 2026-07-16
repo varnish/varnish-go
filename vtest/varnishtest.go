@@ -60,6 +60,7 @@ type VarnishBuilder struct {
 	tlsListener  bool
 
 	licensePath string
+	environ     []string
 
 	syslogs *syslogState
 }
@@ -85,6 +86,19 @@ func (vb *VarnishBuilder) NoSysLogs() *VarnishBuilder {
 // as the VARNISH_LICENSE environment variable.
 func (vb *VarnishBuilder) SetLicensePath(path string) *VarnishBuilder {
 	vb.licensePath = path
+	return vb
+}
+
+// SetEnv sets the environment variables for the varnishd process.
+func (vb *VarnishBuilder) SetEnv(key, value string) *VarnishBuilder {
+	vb.environ = append(vb.environ, key+"="+value)
+	return vb
+}
+
+// ClearEnv clears the environment variables for the varnishd process.  The
+// environment is inherited from the current process by default.
+func (vb *VarnishBuilder) ClearEnv() *VarnishBuilder {
+	vb.environ = []string{}
 	return vb
 }
 
@@ -125,7 +139,9 @@ type Varnish struct {
 // New creates a new VarnishBuilder with default settings.
 // It defaults to VCL version 4.1 and provides no backend by default.
 func New() *VarnishBuilder {
-	vb := &VarnishBuilder{}
+	vb := &VarnishBuilder{
+		environ: os.Environ(),
+	}
 	vb.Vcl41()
 	return vb
 }
@@ -268,9 +284,9 @@ func (vb *VarnishBuilder) Start() (varnish Varnish, err error) {
 	cmd.Stderr = pw
 	switch {
 	case vb.licensePath != "":
-		cmd.Env = append(os.Environ(), "VARNISH_LICENSE="+vb.licensePath)
+		cmd.Env = append(vb.environ, "VARNISH_LICENSE="+vb.licensePath)
 	case os.Getenv("VARNISH_LICENSE") == "":
-		cmd.Env = append(os.Environ(), "VARNISH_LICENSE=/usr/share/varnish-plus/vtc-license.dat")
+		cmd.Env = append(vb.environ, "VARNISH_LICENSE=/usr/share/varnish-plus/vtc-license.dat")
 	}
 
 	err = cmd.Start()
