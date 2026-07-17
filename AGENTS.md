@@ -82,9 +82,10 @@ defer varnish.Stop()
 resp, err := http.Get(varnish.URL)
 ```
 
-`Start()` / `AssertStart(t)` spawns `varnishd` in a temporary workdir under
-`/tmp/`, waits for it to be ready, and begins collecting VSL records in the
-background. `Stop()` must always be called (use `defer`).
+`Start()` / `AssertStart(t)` spawns `varnishd` in a temporary workdir (created
+with `os.MkdirTemp`, honoring `TMPDIR`), waits for it to be ready, and begins
+collecting VSL records in the background. `Stop()` must always be called (use
+`defer`).
 
 ### VarnishBuilder methods (all return `*VarnishBuilder` for chaining)
 
