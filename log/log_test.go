@@ -104,6 +104,46 @@ func TestReceivesClientRequest(t *testing.T) {
 	}
 }
 
+// TestRecordDataExactMatch verifies that Record.Data is the exact record
+// payload: text records must not include their terminating NUL byte, so
+// exact string comparisons work.
+func TestRecordDataExactMatch(t *testing.T) {
+	t.Parallel()
+
+	v := startVarnish(t)
+	defer v.Stop()
+
+	r := newReader(t, &v)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	afterSettle(func() { http.Get(v.URL + "/nul-check") }) //nolint:errcheck
+
+	var requestURL string
+	err := r.Run(ctx, func(txns []varnishlog.Transaction) error {
+		for _, txn := range txns {
+			for _, rec := range txn.Records {
+				if strings.HasSuffix(rec.Data, "\x00") {
+					t.Errorf("record %s data ends with a NUL byte: %q", rec.Tag, rec.Data)
+				}
+				if rec.Tag == varnishlog.TagReqURL && strings.Contains(rec.Data, "/nul-check") {
+					requestURL = rec.Data
+					cancel()
+					return nil
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil && err != context.Canceled {
+		t.Fatalf("Run: %v", err)
+	}
+	if requestURL != "/nul-check" {
+		t.Errorf("expected ReqURL data to equal %q exactly, got %q", "/nul-check", requestURL)
+	}
+}
+
 func TestTransactionFields(t *testing.T) {
 	t.Parallel()
 
