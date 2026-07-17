@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -60,9 +61,14 @@ type VarnishBuilder struct {
 	tlsListener  bool
 
 	licensePath string
+	environ     []string
+
+	buildErr error
 
 	syslogs *syslogState
 }
+
+var envKeyRE = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
 // NoRecordLogs disables the background VSL record collector, making [Varnish.Records]
 // always return an empty slice. [Varnish.RecordChannel] and
@@ -85,6 +91,53 @@ func (vb *VarnishBuilder) NoSysLogs() *VarnishBuilder {
 // as the VARNISH_LICENSE environment variable.
 func (vb *VarnishBuilder) SetLicensePath(path string) *VarnishBuilder {
 	vb.licensePath = path
+	return vb
+}
+
+// setEnvVar sets key to value in environ, replacing any existing entry for
+// key in place, or appending a new one.
+func setEnvVar(environ []string, key, value string) []string {
+	prefix := key + "="
+	for i, kv := range environ {
+		if strings.HasPrefix(kv, prefix) {
+			environ[i] = prefix + value
+			return environ
+		}
+	}
+	return append(environ, prefix+value)
+}
+
+// hasEnvVar reports whether key is already set in environ.
+func hasEnvVar(environ []string, key string) bool {
+	prefix := key + "="
+	for _, kv := range environ {
+		if strings.HasPrefix(kv, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// SetEnv sets an environment variable for the varnishd process. Setting the
+// same key again replaces its previous value.
+// If key does not follow POSIX environment variable name syntax
+// ([A-Za-z_][A-Za-z0-9_]*), the error is recorded and returned by
+// [VarnishBuilder.Start].
+func (vb *VarnishBuilder) SetEnv(key, value string) *VarnishBuilder {
+	if !envKeyRE.MatchString(key) {
+		if vb.buildErr == nil {
+			vb.buildErr = fmt.Errorf("SetEnv: invalid key %q: must match POSIX env name syntax ([A-Za-z_][A-Za-z0-9_]*)", key)
+		}
+		return vb
+	}
+	vb.environ = setEnvVar(vb.environ, key, value)
+	return vb
+}
+
+// ClearEnv clears the environment variables for the varnishd process. The
+// environment is inherited from the current process by default.
+func (vb *VarnishBuilder) ClearEnv() *VarnishBuilder {
+	vb.environ = []string{}
 	return vb
 }
 
@@ -125,7 +178,9 @@ type Varnish struct {
 // New creates a new VarnishBuilder with default settings.
 // It defaults to VCL version 4.1 and provides no backend by default.
 func New() *VarnishBuilder {
-	vb := &VarnishBuilder{}
+	vb := &VarnishBuilder{
+		environ: os.Environ(),
+	}
 	vb.Vcl41()
 	return vb
 }
@@ -232,6 +287,10 @@ func (vb *VarnishBuilder) Backend(name string, urlRaw string) *VarnishBuilder {
 // Start starts a Varnish instance using the options specified in VarnishBuilder.
 // The VarnishBuilder pointer must not be used after calling this function.
 func (vb *VarnishBuilder) Start() (varnish Varnish, err error) {
+	if vb.buildErr != nil {
+		return varnish, vb.buildErr
+	}
+
 	sock, err := net.Listen("tcp", ":0")
 	if err != nil {
 		return
@@ -266,11 +325,12 @@ func (vb *VarnishBuilder) Start() (varnish Varnish, err error) {
 	cmd := exec.Command("varnishd", args...)
 	cmd.Stdout = pw
 	cmd.Stderr = pw
+	cmd.Env = vb.environ
 	switch {
 	case vb.licensePath != "":
-		cmd.Env = append(os.Environ(), "VARNISH_LICENSE="+vb.licensePath)
-	case os.Getenv("VARNISH_LICENSE") == "":
-		cmd.Env = append(os.Environ(), "VARNISH_LICENSE=/usr/share/varnish-plus/vtc-license.dat")
+		cmd.Env = setEnvVar(cmd.Env, "VARNISH_LICENSE", vb.licensePath)
+	case !hasEnvVar(vb.environ, "VARNISH_LICENSE"):
+		cmd.Env = setEnvVar(cmd.Env, "VARNISH_LICENSE", "/usr/share/varnish-plus/vtc-license.dat")
 	}
 
 	err = cmd.Start()

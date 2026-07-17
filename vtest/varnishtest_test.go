@@ -1,6 +1,7 @@
 package vtest_test
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -17,7 +18,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"context"
 	"testing"
 	"time"
 
@@ -414,6 +414,174 @@ func generateSelfSignedCert(t *testing.T) (certFile, keyFile string) {
 	}
 
 	return certFile, keyFile
+}
+
+func TestVarnishBuilder_SetEnv(t *testing.T) {
+	t.Parallel()
+
+	vb := vtest.New().
+		SetEnv("MY_VAR", "myvalue").
+		VclString(`
+			import std;
+
+			backend default none;
+			sub vcl_recv {
+				return(synth(200, "OK"));
+			}
+			sub vcl_synth {
+				set resp.http.My-Var = std.getenv("MY_VAR");
+			}
+		`)
+	varnish, err := vb.Start()
+	if err != nil {
+		t.Fatalf("%v\n%s", err, strings.Join(vb.SysLogs(), "\n"))
+	}
+	defer varnish.Stop()
+
+	resp, err := http.Get(varnish.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if got := resp.Header.Get("My-Var"); got != "myvalue" {
+		t.Errorf(`expected My-Var header "myvalue", got %q`, got)
+	}
+}
+
+func TestVarnishBuilder_SetEnv_Replace(t *testing.T) {
+	t.Parallel()
+
+	vb := vtest.New().
+		SetEnv("MY_VAR", "first").
+		SetEnv("MY_VAR", "second").
+		VclString(`
+			import std;
+
+			backend default none;
+			sub vcl_recv {
+				return(synth(200, "OK"));
+			}
+			sub vcl_synth {
+				set resp.http.My-Var = std.getenv("MY_VAR");
+			}
+		`)
+	varnish, err := vb.Start()
+	if err != nil {
+		t.Fatalf("%v\n%s", err, strings.Join(vb.SysLogs(), "\n"))
+	}
+	defer varnish.Stop()
+
+	resp, err := http.Get(varnish.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if got := resp.Header.Get("My-Var"); got != "second" {
+		t.Errorf(`expected My-Var header "second", got %q`, got)
+	}
+}
+
+func TestVarnishBuilder_SetLicensePath_OverridesSetEnv(t *testing.T) {
+	t.Parallel()
+
+	vb := vtest.New().
+		SetEnv("VARNISH_LICENSE", "/via/setenv").
+		SetLicensePath("/via/setlicensepath").
+		VclString(`
+			import std;
+
+			backend default none;
+			sub vcl_recv {
+				return(synth(200, "OK"));
+			}
+			sub vcl_synth {
+				set resp.http.License = std.getenv("VARNISH_LICENSE");
+			}
+		`)
+	varnish, err := vb.Start()
+	if err != nil {
+		t.Fatalf("%v\n%s", err, strings.Join(vb.SysLogs(), "\n"))
+	}
+	defer varnish.Stop()
+
+	resp, err := http.Get(varnish.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if got := resp.Header.Get("License"); got != "/via/setlicensepath" {
+		t.Errorf(`expected License header "/via/setlicensepath", got %q`, got)
+	}
+}
+
+func TestVarnishBuilder_SetEnv_InvalidKey(t *testing.T) {
+	t.Parallel()
+
+	badKeys := []string{
+		"",
+		"FOO=BAR",
+		"FOO\x00BAR",
+		"FOO BAR",
+		"1FOO",
+		"FOO-BAR",
+	}
+
+	for _, key := range badKeys {
+		key := key
+		t.Run(key, func(t *testing.T) {
+			t.Parallel()
+			_, err := vtest.New().SetEnv(key, "v").Start()
+			if err == nil {
+				t.Fatalf("expected error for invalid key %q, got nil", key)
+			}
+		})
+	}
+}
+
+func TestVarnishBuilder_ClearEnv(t *testing.T) {
+	t.Parallel()
+
+	// A minimal PATH must be set back explicitly: VCL compilation shells out
+	// to a C compiler, which ClearEnv's blank slate would otherwise hide.
+	// A fixed value is used rather than the live process's PATH.
+	vb := vtest.New().
+		SetEnv("PRE_CLEAR_VAR", "shouldnotexist").
+		ClearEnv().
+		SetEnv("PATH", "/usr/bin:/bin").
+		SetEnv("MY_VAR", "myvalue").
+		VclString(`
+		import std;
+
+		backend default none;
+		sub vcl_recv {
+			return(synth(200, "OK"));
+		}
+		sub vcl_synth {
+			set resp.http.My-Var = std.getenv("MY_VAR");
+			set resp.http.Pre-Clear-Var = std.getenv("PRE_CLEAR_VAR");
+		}
+	`)
+	varnish, err := vb.Start()
+	if err != nil {
+		t.Fatalf("%v\n%s", err, strings.Join(vb.SysLogs(), "\n"))
+	}
+	defer varnish.Stop()
+
+	resp, err := http.Get(varnish.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if got := resp.Header.Get("My-Var"); got != "myvalue" {
+		t.Errorf(`expected My-Var header "myvalue", got %q`, got)
+	}
+	if got := resp.Header.Get("Pre-Clear-Var"); got != "" {
+		t.Errorf(`expected Pre-Clear-Var header to be empty after ClearEnv, got %q`, got)
+	}
 }
 
 func TestTLSListener(t *testing.T) {
