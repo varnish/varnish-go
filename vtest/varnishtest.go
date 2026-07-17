@@ -403,12 +403,11 @@ func (vb *VarnishBuilder) Start() (varnish Varnish, err error) {
 			return
 		}
 	} else {
-		var sb strings.Builder
-		for _, b := range vb.backends {
-			fmt.Fprintf(&sb, "backend %s {\n\t.host = %q;\n\t.port = %q;\n\t.host_header = %q;\n}\n",
-				b.name, b.host, b.port, b.host)
+		var backendString string
+		backendString, err = vb.backendDefinitions()
+		if err != nil {
+			return
 		}
-		backendString := sb.String()
 
 		vcl := fmt.Sprintf("%s%s%s", vb.vclVersion, backendString, vb.vclString)
 		_, err = varnish.Adm("vcl.inline", "vcl1 << XXYYZZ\n", vcl, "\nXXYYZZ")
@@ -456,6 +455,29 @@ func (vb *VarnishBuilder) Start() (varnish Varnish, err error) {
 	vb.syslogs = nil
 
 	return
+}
+
+// backendDefinitions renders the VCL backend blocks for the backends added
+// with [VarnishBuilder.Backend]. Backends with an https URL get a TLS
+// backend on Varnish Enterprise; Varnish Cache has no native backend TLS,
+// so they produce an error instead.
+func (vb *VarnishBuilder) backendDefinitions() (string, error) {
+	var sb strings.Builder
+	for _, b := range vb.backends {
+		if b.tls && !version.IsEnterprise() {
+			return "", fmt.Errorf("vtest: backend %q uses an https URL, but backend TLS requires Varnish Enterprise", b.name)
+		}
+		fmt.Fprintf(&sb, "backend %s {\n\t.host = %q;\n\t.port = %q;\n\t.host_header = %q;\n",
+			b.name, b.host, b.port, b.host)
+		if b.tls {
+			// Certificate verification stays off: vtest backends are
+			// typically local httptest servers with self-signed
+			// certificates.
+			sb.WriteString("\t.ssl = 1;\n\t.ssl_verify_peer = 0;\n\t.ssl_verify_host = 0;\n")
+		}
+		sb.WriteString("}\n")
+	}
+	return sb.String(), nil
 }
 
 // AssertStart calls [VarnishBuilder.Start] and calls t.Fatal if it fails.
