@@ -173,7 +173,7 @@ func TestNoSysLogsBuilderChannelStillWorks(t *testing.T) {
 func TestInvalidParameterFails(t *testing.T) {
 	t.Parallel()
 	_, err := vtest.New().
-		Parameter("-p", "this_param_does_not_exist=1").
+		Parameter("this_param_does_not_exist", "1").
 		VclString(minimalVCL).
 		Start()
 	if err == nil {
