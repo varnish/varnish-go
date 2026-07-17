@@ -77,8 +77,8 @@ func (vb *VarnishBuilder) NoRecordLogs() *VarnishBuilder {
 	return vb
 }
 
-// NoSysLogs disables accumulation of stdout/stderr lines for [Varnish.SysLog].
-// [VarnishBuilder.SysLogChannel] and [VarnishBuilder.SysLogChannel] continue to work.
+// NoSysLogs disables accumulation of stdout/stderr lines for [Varnish.SysLogs].
+// [VarnishBuilder.SysLogChannel] and [Varnish.SysLogChannel] continue to work.
 // This is useful to reduce resource usage for longer running tests which can use channels instead.
 func (vb *VarnishBuilder) NoSysLogs() *VarnishBuilder {
 	vb.noSysLogs = true
@@ -225,7 +225,7 @@ func (vb *VarnishBuilder) VCLVersion(version string) *VarnishBuilder {
 }
 
 // tlsProto returns the protocol name for the TLS listener flag.
-// Varnish Plus uses "https"; open-source Varnish uses "TLS".
+// Varnish Enterprise uses "https"; Varnish Cache uses "TLS".
 func tlsProto() string {
 	if version.IsEnterprise() {
 		return "https"
