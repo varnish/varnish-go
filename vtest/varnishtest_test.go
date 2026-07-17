@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/varnish/varnish-go/adm"
+	"github.com/varnish/varnish-go/version"
 	"github.com/varnish/varnish-go/vtest"
 )
 
@@ -485,6 +486,12 @@ func TestVarnishBuilder_SetEnv_Replace(t *testing.T) {
 
 func TestVarnishBuilder_SetLicensePath_OverridesSetEnv(t *testing.T) {
 	t.Parallel()
+
+	// it's only impacting Enterprise, but it's easier to actually test on Cache
+	// because messing with VARNISH_LICENSE is ignored by Cache.
+	if version.IsEnterprise() {
+		t.Skip("TestVarnishBuilder_SetLicensePath_OverridesSetEnv is only for Cache")
+	}
 
 	vb := vtest.New().
 		SetEnv("VARNISH_LICENSE", "/via/setenv").
