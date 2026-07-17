@@ -5,6 +5,7 @@
 - **New**: `vtest.VarnishBuilder.SetEnv()` / `ClearEnv()` — control the environment `varnishd` is started with, to allow parallel `varnishd` processes to run with different environment variables. `SetEnv` rejects keys that don't follow POSIX environment variable name syntax (`[A-Za-z_][A-Za-z0-9_]*`); the error is deferred and returned by `Start()`. Setting the same key twice replaces the previous value.
 - **Fix**: `vtest` — the default `VARNISH_LICENSE` is now only set if the inherited environment didn't already contain it.
 - **Fix**: `log` — `Record.Data` no longer includes the terminating NUL byte of text records; the switch to `C.GoStringN` for binary records embedded a trailing `\0` in every text record, breaking exact-match comparisons on `Data`
+- **Changed**: `vtest` — the workdir is created with `os.MkdirTemp` and honors TMPDIR instead of being hardcoded under `/tmp`; removes the `github.com/google/uuid` dependency
 
 ## v0.1.1 — 2026-06-22
 

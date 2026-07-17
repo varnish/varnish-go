@@ -629,3 +629,19 @@ func TestTLSListener(t *testing.T) {
 		t.Errorf("expected 200, got %d", resp.StatusCode)
 	}
 }
+
+// TestWorkdirHonorsTMPDIR verifies that the workdir is created under TMPDIR.
+func TestWorkdirHonorsTMPDIR(t *testing.T) {
+	tmpRoot := t.TempDir()
+	t.Setenv("TMPDIR", tmpRoot)
+
+	varnish, err := vtest.New().VclString(minimalVCL).Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer varnish.Stop()
+
+	if !strings.HasPrefix(varnish.Name(), tmpRoot+string(os.PathSeparator)) {
+		t.Errorf("workdir %s not under TMPDIR %s", varnish.Name(), tmpRoot)
+	}
+}

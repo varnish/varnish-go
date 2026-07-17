@@ -21,8 +21,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/varnish/varnish-go/adm"
 	"github.com/varnish/varnish-go/stat"
 	"github.com/varnish/varnish-go/version"
@@ -297,7 +295,16 @@ func (vb *VarnishBuilder) Start() (varnish Varnish, err error) {
 	}
 	defer sock.Close()
 
-	name := fmt.Sprintf("/tmp/varnishtest-go.%s", uuid.NewString())
+	name, err := os.MkdirTemp("", "varnishtest-go.")
+	if err != nil {
+		return
+	}
+	// Remove the workdir when any later startup step fails.
+	defer func() {
+		if err != nil {
+			_ = os.RemoveAll(name)
+		}
+	}()
 
 	args := []string{
 		"-F",
