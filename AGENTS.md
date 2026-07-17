@@ -98,7 +98,7 @@ terminated and the workdir removed.
 | `VCLVersion(s)` | Override VCL version header (default: `"vcl 4.1;\n\n"`) |
 | `Vcl41()` / `Vcl40()` | Shorthand version setters |
 | `Backend(name, url)` | Add a VCL backend; panics if URL cannot be parsed |
-| `Parameter(name, val)` | Append a `-p name val` flag to varnishd |
+| `Parameter(name, val)` | Append a `-p name=val` flag to varnishd |
 | `TLSListener()` | Add a TLS listener; endpoint available via `v.TLSURL` after start |
 | `PEMFile(cert, key)` | Register a TLS cert for auto-loading (implicitly enables TLSListener; key may be `""` if embedded in cert) |
 | `SetLicensePath(path)` | Set `VARNISH_LICENSE` env var for Varnish Enterprise |

@@ -676,3 +676,29 @@ func TestStartCleanupOnFailure(t *testing.T) {
 		t.Errorf("failed Start leaked varnishd processes:\n%s", output)
 	}
 }
+
+// TestParameter verifies that Parameter passes -p name=value to varnishd and
+// the value takes effect.
+func TestParameter(t *testing.T) {
+	t.Parallel()
+	varnish, err := vtest.New().
+		Parameter("max_retries", "2").
+		VclString(minimalVCL).
+		Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer varnish.Stop()
+
+	params, err := varnish.AdmConn().ParamShow(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, ok := params["max_retries"]
+	if !ok {
+		t.Fatal("max_retries not in param.show output")
+	}
+	if fmt.Sprint(info.Value) != "2" {
+		t.Errorf("max_retries = %v, want 2", info.Value)
+	}
+}

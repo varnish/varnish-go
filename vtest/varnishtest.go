@@ -198,7 +198,9 @@ func (vb *VarnishBuilder) VclFile(s string) *VarnishBuilder {
 	return vb
 }
 
-// Parameter appends a parameter to the varnishd command.
+// Parameter appends a -p name=value startup parameter to the varnishd
+// command line. Parameters that are runtime-settable can also be changed
+// after start via [Varnish.AdmConn] and [adm.Conn.ParamSet].
 func (vb *VarnishBuilder) Parameter(name string, value string) *VarnishBuilder {
 	vb.parameters = append(vb.parameters, parameter{name: name, value: value})
 	return vb
@@ -324,7 +326,7 @@ func (vb *VarnishBuilder) Start() (varnish Varnish, err error) {
 		args = append(args, "-a", "HTTPS=127.0.0.1:0,"+tlsProto())
 	}
 	for _, p := range vb.parameters {
-		args = append(args, p.name, p.value)
+		args = append(args, "-p", p.name+"="+p.value)
 	}
 
 	pr, pw := io.Pipe()
