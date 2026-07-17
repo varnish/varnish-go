@@ -423,8 +423,8 @@ In code comments and documentation, use full product names:
 
 Rules:
 - One bullet per logical change. Separate label, package, and description with ` — `.
-- Unreleased work goes under the current version header, not an "Unreleased" section.
-- Bump the version number in the header when cutting a release.
+- Unreleased work goes under an "## Unreleased" section at the top.
+- When cutting a release, rename the "## Unreleased" header to the new version number and date.
 
 ---
 
