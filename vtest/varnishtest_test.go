@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -643,5 +644,35 @@ func TestWorkdirHonorsTMPDIR(t *testing.T) {
 
 	if !strings.HasPrefix(varnish.Name(), tmpRoot+string(os.PathSeparator)) {
 		t.Errorf("workdir %s not under TMPDIR %s", varnish.Name(), tmpRoot)
+	}
+}
+
+// TestStartCleanupOnFailure verifies that a failed Start leaks neither the
+// workdir nor the varnishd process. A private TMPDIR isolates the check from
+// concurrently running instances; t.Setenv also keeps this test serial.
+func TestStartCleanupOnFailure(t *testing.T) {
+	tmpRoot := t.TempDir()
+	t.Setenv("TMPDIR", tmpRoot)
+
+	_, err := vtest.New().VclString(`this is not valid VCL`).Start()
+	if err == nil {
+		t.Fatal("expected Start to fail with invalid VCL")
+	}
+
+	leftovers, err := filepath.Glob(filepath.Join(tmpRoot, "varnishtest-go.*"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(leftovers) > 0 {
+		t.Errorf("failed Start leaked workdirs: %v", leftovers)
+	}
+
+	// The workdir path only appears in the command line of varnishd
+	// processes started by this test, so a pgrep match is a leaked process.
+	if _, err := exec.LookPath("pgrep"); err != nil {
+		t.Skip("pgrep not available, skipping process leak check")
+	}
+	if output, _ := exec.Command("pgrep", "-af", tmpRoot).Output(); len(output) > 0 {
+		t.Errorf("failed Start leaked varnishd processes:\n%s", output)
 	}
 }

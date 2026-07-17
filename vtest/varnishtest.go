@@ -349,6 +349,21 @@ func (vb *VarnishBuilder) Start() (varnish Varnish, err error) {
 	ss.start(pr, cmd.Wait)
 	vb.syslogs = ss
 
+	// From here on, any failed step must not leak the varnishd process.
+	// SysLogs stays available on the builder for diagnostics. Registered
+	// after the workdir removal above, so it runs first (LIFO): the
+	// process is killed and reaped before the workdir is removed.
+	defer func() {
+		if err == nil {
+			return
+		}
+		if varnish.conn != nil {
+			_ = varnish.conn.Close()
+		}
+		_ = cmd.Process.Kill()
+		<-ss.exited
+	}()
+
 	var conn *adm.Conn
 	{
 		type acceptResult struct {
