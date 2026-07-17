@@ -7,6 +7,7 @@
 - **Fix**: `log` — `Record.Data` no longer includes the terminating NUL byte of text records; the switch to `C.GoStringN` for binary records embedded a trailing `\0` in every text record, breaking exact-match comparisons on `Data`
 - **Fix**: `vtest` — `Start` now terminates the varnishd process when startup fails partway (bad VCL, admin socket errors); previously every failed `Start` leaked a running varnishd
 - **Fix**: `vtest` — `VarnishBuilder.Parameter(name, value)` now appends `-p name=value` as documented; previously the two strings were appended as raw arguments, so parameters never took effect unless callers passed `Parameter("-p", "name=value")`
+- **Fix**: `vtest` — `VarnishBuilder.Backend` with an https URL now emits a TLS backend on Varnish Enterprise (certificate verification off, suited to self-signed test backends); previously the scheme was parsed but ignored and the backend spoke plaintext to port 443. On Varnish Cache, `Start` returns an error for https backends
 - **Changed**: `vtest` — the workdir is created with `os.MkdirTemp` and honors TMPDIR instead of being hardcoded under `/tmp`; removes the `github.com/google/uuid` dependency
 
 ## v0.1.1 — 2026-06-22
