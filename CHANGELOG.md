@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.1.2 — 2026-07-20
 
 - **New**: `vtest.VarnishBuilder.SetEnv()` / `ClearEnv()` — control the environment `varnishd` is started with, to allow parallel `varnishd` processes to run with different environment variables. `SetEnv` rejects keys that don't follow POSIX environment variable name syntax (`[A-Za-z_][A-Za-z0-9_]*`); the error is deferred and returned by `Start()`. Setting the same key twice replaces the previous value.
 - **Fix**: `vtest` — the default `VARNISH_LICENSE` is now only set if the inherited environment didn't already contain it.
