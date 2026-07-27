@@ -41,7 +41,7 @@ func TestSynth(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	defer varnish.Stop()
+	t.Cleanup(varnish.Stop)
 
 	// use a regular client to send a request
 	resp, err := http.Get(varnish.URL + "/test")
@@ -70,7 +70,7 @@ func TestBackend(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	defer varnish.Stop()
+	t.Cleanup(varnish.Stop)
 
 	resp, err := http.Get(varnish.URL)
 	if err != nil {
@@ -117,7 +117,7 @@ func TestRouting(t *testing.T) {
 		return
 	}
 
-	defer varnish.Stop()
+	t.Cleanup(varnish.Stop)
 
 	resp, err := http.Get(varnish.URL + "/A")
 	if err != nil {
@@ -159,7 +159,7 @@ func TestAdm(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	defer varnish.Stop()
+	t.Cleanup(varnish.Stop)
 
 	// ask nicely (through the varnish object)
 	msg, err := varnish.Adm("ping")
@@ -197,7 +197,7 @@ func TestVarnishBuilder_AssertStart(t *testing.T) {
 					return(synth(200, "OK"));
 				}
         `).AssertStart(t)
-	defer varnish.Stop()
+	t.Cleanup(varnish.Stop)
 }
 
 func TestVarnishBuilder_Start_BadVCL(t *testing.T) {
@@ -331,7 +331,7 @@ func TestCounter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer varnish.Stop()
+	t.Cleanup(varnish.Stop)
 
 	for range 3 {
 		if _, err := http.Get(varnish.URL + "/test"); err != nil {
@@ -438,7 +438,7 @@ func TestVarnishBuilder_SetEnv(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%v\n%s", err, strings.Join(vb.SysLogs(), "\n"))
 	}
-	defer varnish.Stop()
+	t.Cleanup(varnish.Stop)
 
 	resp, err := http.Get(varnish.URL)
 	if err != nil {
@@ -472,7 +472,7 @@ func TestVarnishBuilder_SetEnv_Replace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%v\n%s", err, strings.Join(vb.SysLogs(), "\n"))
 	}
-	defer varnish.Stop()
+	t.Cleanup(varnish.Stop)
 
 	resp, err := http.Get(varnish.URL)
 	if err != nil {
@@ -512,7 +512,7 @@ func TestVarnishBuilder_SetLicensePath_OverridesSetEnv(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%v\n%s", err, strings.Join(vb.SysLogs(), "\n"))
 	}
-	defer varnish.Stop()
+	t.Cleanup(varnish.Stop)
 
 	resp, err := http.Get(varnish.URL)
 	if err != nil {
@@ -576,7 +576,7 @@ func TestVarnishBuilder_ClearEnv(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%v\n%s", err, strings.Join(vb.SysLogs(), "\n"))
 	}
-	defer varnish.Stop()
+	t.Cleanup(varnish.Stop)
 
 	resp, err := http.Get(varnish.URL)
 	if err != nil {
@@ -609,7 +609,7 @@ func TestTLSListener(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%v\n%s", err, strings.Join(vb.SysLogs(), "\n"))
 	}
-	defer varnish.Stop()
+	t.Cleanup(varnish.Stop)
 
 	if varnish.TLSURL == "" {
 		t.Fatal("TLSURL is empty after TLSListener()+PEMFile()")
@@ -640,7 +640,7 @@ func TestWorkdirHonorsTMPDIR(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer varnish.Stop()
+	t.Cleanup(varnish.Stop)
 
 	if !strings.HasPrefix(varnish.Name(), tmpRoot+string(os.PathSeparator)) {
 		t.Errorf("workdir %s not under TMPDIR %s", varnish.Name(), tmpRoot)
@@ -688,7 +688,7 @@ func TestParameter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer varnish.Stop()
+	t.Cleanup(varnish.Stop)
 
 	params, err := varnish.AdmConn().ParamShow(context.Background())
 	if err != nil {
@@ -701,4 +701,103 @@ func TestParameter(t *testing.T) {
 	if fmt.Sprint(info.Value) != "2" {
 		t.Errorf("max_retries = %v, want 2", info.Value)
 	}
+}
+
+func TestReadOnlyParameter(t *testing.T) {
+	t.Parallel()
+
+	readOnlyParameters := []string{"max_retries", "max_restarts"}
+	varnish, err := vtest.New().
+		ReadOnlyParameter(readOnlyParameters...).
+		VclString(minimalVCL).
+		Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(varnish.Stop)
+
+	for _, parameter := range readOnlyParameters {
+		if _, err := varnish.Adm("param.set", parameter, "1"); err != nil {
+			if !strings.Contains(err.Error(), " is protected") {
+				t.Errorf("param.set %s failed with unexpected error: %v", parameter, err)
+			}
+		} else {
+			t.Errorf("param.set %s succeeded for a read-only parameter", parameter)
+		}
+	}
+}
+
+func TestAddress(t *testing.T) {
+	t.Parallel()
+
+	listenerNames := []string{"EXTRA1", "EXTRA2"}
+	varnish, err := vtest.New().
+		Address("EXTRA1=127.0.0.1:0", "EXTRA2=127.0.0.1:0").
+		VclString(minimalVCL).
+		Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(varnish.Stop)
+
+	listenAddresses, err := varnish.Adm("debug.listen_address")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	listenerURLs := make(map[string]string, len(listenerNames))
+	for _, line := range strings.Split(strings.TrimSpace(listenAddresses), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) != 3 {
+			continue
+		}
+		for _, name := range listenerNames {
+			if fields[0] == name {
+				listenerURLs[name] = "http://" + net.JoinHostPort(fields[1], fields[2])
+			}
+		}
+	}
+
+	for _, name := range listenerNames {
+		listenerURL, ok := listenerURLs[name]
+		if !ok {
+			t.Errorf("listener %s not found in debug.listen_address output:\n%s", name, listenAddresses)
+			continue
+		}
+		resp, err := http.Get(listenerURL)
+		if err != nil {
+			t.Errorf("GET through listener %s: %v", name, err)
+			continue
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("GET through listener %s returned %d, want %d", name, resp.StatusCode, http.StatusOK)
+		}
+	}
+}
+
+func TestJail(t *testing.T) {
+	t.Parallel()
+
+	t.Run("none", func(t *testing.T) {
+		varnish, err := vtest.New().
+			Jail("none").
+			VclString(minimalVCL).
+			Start()
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(varnish.Stop)
+	})
+
+	t.Run("invalid jail", func(t *testing.T) {
+		varnish, err := vtest.New().
+			Jail("definitely-not-a-jail").
+			VclString(minimalVCL).
+			Start()
+		if err == nil {
+			t.Cleanup(varnish.Stop)
+			t.Fatal("Start succeeded with an invalid jail mechanism")
+		}
+	})
 }
