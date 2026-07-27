@@ -49,10 +49,13 @@ type VarnishBuilder struct {
 	vclString  string
 	vclVersion string
 
-	parameters  []parameter
-	backends    []backend
-	pemFiles    []pemFile
-	sysLogChans []chan string
+	addresses          []string
+	jail               string
+	readOnlyParameters []string
+	parameters         []parameter
+	backends           []backend
+	pemFiles           []pemFile
+	sysLogChans        []chan string
 
 	noRecordLogs bool
 	noSysLogs    bool
@@ -198,6 +201,24 @@ func (vb *VarnishBuilder) VclFile(s string) *VarnishBuilder {
 	return vb
 }
 
+// ReadOnlyParameter marks a parameter as read-only.  The parameter cannot be changed at runtime via varnishadm.
+func (vb *VarnishBuilder) ReadOnlyParameter(names ...string) *VarnishBuilder {
+	vb.readOnlyParameters = append(vb.readOnlyParameters, names...)
+	return vb
+}
+
+// Address adds a listener address to the Varnish instance.
+func (vb *VarnishBuilder) Address(addresses ...string) *VarnishBuilder {
+	vb.addresses = append(vb.addresses, addresses...)
+	return vb
+}
+
+// Jail sets the jail mechanism to use.
+func (vb *VarnishBuilder) Jail(jail string) *VarnishBuilder {
+	vb.jail = jail
+	return vb
+}
+
 // Parameter appends a -p name=value startup parameter to the varnishd
 // command line. Parameters that are runtime-settable can also be changed
 // after start via [Varnish.AdmConn] and [adm.Conn.ParamSet].
@@ -308,7 +329,11 @@ func (vb *VarnishBuilder) Start() (varnish Varnish, err error) {
 		}
 	}()
 
-	args := []string{
+	args := []string{}
+	if vb.jail != "" {
+		args = append(args, "-j", vb.jail)
+	}
+	args = append(args,
 		"-F",
 		"-f", "",
 		"-n", name,
@@ -321,12 +346,18 @@ func (vb *VarnishBuilder) Start() (varnish Varnish, err error) {
 		"-p", "h2_initial_window_size=1m",
 		"-p", "h2_rx_window_low_water=64k",
 		"-M", sock.Addr().String(),
-	}
+	)
 	if vb.tlsListener {
 		args = append(args, "-a", "HTTPS=127.0.0.1:0,"+tlsProto())
 	}
 	for _, p := range vb.parameters {
 		args = append(args, "-p", p.name+"="+p.value)
+	}
+	if len(vb.readOnlyParameters) > 0 {
+		args = append(args, "-r", strings.Join(vb.readOnlyParameters, ","))
+	}
+	for _, a := range vb.addresses {
+		args = append(args, "-a", a)
 	}
 
 	pr, pw := io.Pipe()
