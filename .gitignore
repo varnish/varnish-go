@@ -7,6 +7,8 @@
 *.dll
 *.so
 *.dylib
+# except pkg/vcl/so test fixtures (vendored from perbu/vclparser, needed by its tests)
+!pkg/vcl/so/testdata/**/*.so
 
 # Test binary, built with `go test -c`
 *.test
