@@ -6,11 +6,11 @@ import (
 	"log"
 	"os"
 
-	"github.com/perbu/vclparser/pkg/analyzer"
-	ast2 "github.com/perbu/vclparser/pkg/ast"
-	"github.com/perbu/vclparser/pkg/parser"
-	"github.com/perbu/vclparser/pkg/types"
-	"github.com/perbu/vclparser/pkg/vmod"
+	"github.com/varnish/varnish-go/pkg/vcl/analyzer"
+	ast2 "github.com/varnish/varnish-go/pkg/vcl/ast"
+	"github.com/varnish/varnish-go/pkg/vcl/parser"
+	"github.com/varnish/varnish-go/pkg/vcl/types"
+	"github.com/varnish/varnish-go/pkg/vcl/vmod"
 )
 
 // PrettyPrinter implements a visitor that prints the AST in a readable format

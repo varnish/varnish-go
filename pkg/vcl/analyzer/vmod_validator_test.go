@@ -4,11 +4,11 @@ import (
 	"strings"
 	"testing"
 
-	ast2 "github.com/perbu/vclparser/pkg/ast"
-	"github.com/perbu/vclparser/pkg/lexer"
-	"github.com/perbu/vclparser/pkg/parser"
-	types2 "github.com/perbu/vclparser/pkg/types"
-	"github.com/perbu/vclparser/pkg/vcc"
+	ast2 "github.com/varnish/varnish-go/pkg/vcl/ast"
+	"github.com/varnish/varnish-go/pkg/vcl/lexer"
+	"github.com/varnish/varnish-go/pkg/vcl/parser"
+	types2 "github.com/varnish/varnish-go/pkg/vcl/types"
+	"github.com/varnish/varnish-go/pkg/vcl/vcc"
 )
 
 // Use shared test utilities from test_utils.go

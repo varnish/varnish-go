@@ -3,7 +3,7 @@ package vmod
 import (
 	"testing"
 
-	"github.com/perbu/vclparser"
+	"github.com/varnish/varnish-go/pkg/vcl"
 )
 
 // TestVCCLibAllFiles tests that all VCC files in vcclib directory can be parsed
@@ -19,7 +19,7 @@ func TestVCCLibAllFiles(t *testing.T) {
 	}
 
 	// Get all embedded VCC files
-	vccFiles, err := vclparser.ListEmbeddedVCCFiles()
+	vccFiles, err := vcl.ListEmbeddedVCCFiles()
 	if err != nil {
 		t.Fatalf("Failed to list embedded VCC files: %v", err)
 	}

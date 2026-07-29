@@ -8,9 +8,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/perbu/vclparser"
-	"github.com/perbu/vclparser/pkg/so"
-	"github.com/perbu/vclparser/pkg/vcc"
+	"github.com/varnish/varnish-go/pkg/vcl"
+	"github.com/varnish/varnish-go/pkg/vcl/so"
+	"github.com/varnish/varnish-go/pkg/vcl/vcc"
 )
 
 // Registry manages VMOD definitions loaded from VCC files
@@ -336,13 +336,13 @@ var DefaultRegistry = NewRegistry()
 
 // LoadEmbeddedVCCs loads all embedded VCC files
 func (r *Registry) LoadEmbeddedVCCs() error {
-	vccFiles, err := vclparser.ListEmbeddedVCCFiles()
+	vccFiles, err := vcl.ListEmbeddedVCCFiles()
 	if err != nil {
 		return fmt.Errorf("failed to list embedded VCC files: %v", err)
 	}
 
 	for _, filename := range vccFiles {
-		reader, err := vclparser.OpenEmbeddedVCCFile(filename)
+		reader, err := vcl.OpenEmbeddedVCCFile(filename)
 		if err != nil {
 			return fmt.Errorf("failed to open embedded VCC file %s: %v", filename, err)
 		}

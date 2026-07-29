@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/perbu/vclparser/pkg/lexer"
-	"github.com/perbu/vclparser/pkg/metadata"
+	"github.com/varnish/varnish-go/pkg/vcl/lexer"
+	"github.com/varnish/varnish-go/pkg/vcl/metadata"
 )
 
 // MetadataSymbolTable is a symbol table that loads built-in symbols from VCL metadata

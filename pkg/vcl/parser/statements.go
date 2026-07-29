@@ -3,9 +3,9 @@ package parser
 import (
 	"fmt"
 
-	ast2 "github.com/perbu/vclparser/pkg/ast"
-	"github.com/perbu/vclparser/pkg/lexer"
-	"github.com/perbu/vclparser/pkg/types"
+	ast2 "github.com/varnish/varnish-go/pkg/vcl/ast"
+	"github.com/varnish/varnish-go/pkg/vcl/lexer"
+	"github.com/varnish/varnish-go/pkg/vcl/types"
 )
 
 // parseStatement parses a statement

@@ -1,10 +1,10 @@
-package vclparser_test
+package vcl_test
 
 import (
 	"strings"
 	"testing"
 
-	"github.com/perbu/vclparser/pkg/parser"
+	"github.com/varnish/varnish-go/pkg/vcl/parser"
 )
 
 func TestCallStatementParsing(t *testing.T) {

@@ -1,9 +1,9 @@
 package parser
 
 import (
-	"github.com/perbu/vclparser/pkg/ast"
-	"github.com/perbu/vclparser/pkg/lexer"
-	"github.com/perbu/vclparser/pkg/types"
+	"github.com/varnish/varnish-go/pkg/vcl/ast"
+	"github.com/varnish/varnish-go/pkg/vcl/lexer"
+	"github.com/varnish/varnish-go/pkg/vcl/types"
 )
 
 // parseBackendDecl parses a backend declaration

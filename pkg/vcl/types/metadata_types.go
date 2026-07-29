@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/perbu/vclparser/pkg/metadata"
+	"github.com/varnish/varnish-go/pkg/vcl/metadata"
 )
 
 // MetadataTypeSystem provides types from the VCL metadata

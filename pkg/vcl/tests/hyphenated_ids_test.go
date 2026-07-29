@@ -1,9 +1,9 @@
-package vclparser_test
+package vcl_test
 
 import (
 	"testing"
 
-	"github.com/perbu/vclparser/pkg/parser"
+	"github.com/varnish/varnish-go/pkg/vcl/parser"
 )
 
 func TestHyphenatedIdentifiers(t *testing.T) {

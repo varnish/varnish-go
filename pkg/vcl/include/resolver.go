@@ -11,8 +11,8 @@ package include
 import (
 	"path/filepath"
 
-	"github.com/perbu/vclparser/pkg/ast"
-	"github.com/perbu/vclparser/pkg/parser"
+	"github.com/varnish/varnish-go/pkg/vcl/ast"
+	"github.com/varnish/varnish-go/pkg/vcl/parser"
 )
 
 // Resolver handles parsing VCL files with include statements

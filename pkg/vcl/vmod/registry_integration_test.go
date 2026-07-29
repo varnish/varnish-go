@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/perbu/vclparser/pkg/vcc"
+	"github.com/varnish/varnish-go/pkg/vcl/vcc"
 )
 
 func TestRegistryWithRealWorldVMODs(t *testing.T) {

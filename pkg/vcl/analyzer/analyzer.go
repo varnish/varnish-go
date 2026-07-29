@@ -3,11 +3,11 @@ package analyzer
 import (
 	"fmt"
 
-	"github.com/perbu/vclparser/pkg/ast"
-	"github.com/perbu/vclparser/pkg/metadata"
-	"github.com/perbu/vclparser/pkg/parser"
-	"github.com/perbu/vclparser/pkg/types"
-	"github.com/perbu/vclparser/pkg/vmod"
+	"github.com/varnish/varnish-go/pkg/vcl/ast"
+	"github.com/varnish/varnish-go/pkg/vcl/metadata"
+	"github.com/varnish/varnish-go/pkg/vcl/parser"
+	"github.com/varnish/varnish-go/pkg/vcl/types"
+	"github.com/varnish/varnish-go/pkg/vcl/vmod"
 )
 
 // Analyzer performs semantic analysis on VCL AST

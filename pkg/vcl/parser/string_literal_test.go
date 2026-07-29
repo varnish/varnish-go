@@ -3,7 +3,7 @@ package parser
 import (
 	"testing"
 
-	ast2 "github.com/perbu/vclparser/pkg/ast"
+	ast2 "github.com/varnish/varnish-go/pkg/vcl/ast"
 )
 
 // StringLiteral.Value holds the raw bytes between the delimiters. VCL has no

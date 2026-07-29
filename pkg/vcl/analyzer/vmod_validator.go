@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/perbu/vclparser/pkg/ast"
-	"github.com/perbu/vclparser/pkg/types"
-	"github.com/perbu/vclparser/pkg/vcc"
-	"github.com/perbu/vclparser/pkg/vmod"
+	"github.com/varnish/varnish-go/pkg/vcl/ast"
+	"github.com/varnish/varnish-go/pkg/vcl/types"
+	"github.com/varnish/varnish-go/pkg/vcl/vcc"
+	"github.com/varnish/varnish-go/pkg/vcl/vmod"
 )
 
 // VMODValidator validates VMOD usage in VCL code

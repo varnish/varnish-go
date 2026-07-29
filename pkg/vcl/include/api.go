@@ -1,6 +1,6 @@
 package include
 
-import "github.com/perbu/vclparser/pkg/ast"
+import "github.com/varnish/varnish-go/pkg/vcl/ast"
 
 // ResolveFile is a convenience function that parses a VCL file and resolves all includes
 // using default settings. For more control, use NewResolver with options.

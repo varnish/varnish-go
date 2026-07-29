@@ -3,10 +3,10 @@ package analyzer
 import (
 	"testing"
 
-	"github.com/perbu/vclparser/pkg/ast"
-	"github.com/perbu/vclparser/pkg/lexer"
-	"github.com/perbu/vclparser/pkg/metadata"
-	"github.com/perbu/vclparser/pkg/parser"
+	"github.com/varnish/varnish-go/pkg/vcl/ast"
+	"github.com/varnish/varnish-go/pkg/vcl/lexer"
+	"github.com/varnish/varnish-go/pkg/vcl/metadata"
+	"github.com/varnish/varnish-go/pkg/vcl/parser"
 )
 
 func TestReturnActionValidator_ValidateReturnActions(t *testing.T) {

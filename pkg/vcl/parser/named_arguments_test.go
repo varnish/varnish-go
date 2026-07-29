@@ -3,8 +3,8 @@ package parser
 import (
 	"testing"
 
-	ast2 "github.com/perbu/vclparser/pkg/ast"
-	"github.com/perbu/vclparser/pkg/lexer"
+	ast2 "github.com/varnish/varnish-go/pkg/vcl/ast"
+	"github.com/varnish/varnish-go/pkg/vcl/lexer"
 )
 
 func TestNamedArgumentParsing(t *testing.T) {

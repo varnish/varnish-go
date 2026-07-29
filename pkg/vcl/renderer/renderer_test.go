@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/perbu/vclparser/pkg/ast"
-	"github.com/perbu/vclparser/pkg/parser"
+	"github.com/varnish/varnish-go/pkg/vcl/ast"
+	"github.com/varnish/varnish-go/pkg/vcl/parser"
 )
 
 // TestRenderProgram tests basic program rendering

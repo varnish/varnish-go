@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/perbu/vclparser/pkg/ast"
+	"github.com/varnish/varnish-go/pkg/vcl/ast"
 )
 
 // VCLRenderer implements a visitor that renders AST nodes back to VCL source code
