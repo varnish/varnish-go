@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **New**: `vcl` — parse Varnish Configuration Language into an AST and render it back. `vcl.NewParser(input)` builds a parser (chainable options for max errors, inline C, missing version declarations, subroutine validation, and include resolution), `Parse()` returns a `*vcl.Vcl`, and `String()` / `AST()` render it or expose the parsed `*ast.Program`. Unlike the other packages, this one is pure Go — no CGo and no libvarnishapi. Vendored from [github.com/perbu/vclparser](https://github.com/perbu/vclparser) under BSD-3-Clause; see `NOTICE.md`
+
 ## v0.1.2 — 2026-07-20
 
 - **New**: `vtest.VarnishBuilder.SetEnv()` / `ClearEnv()` — control the environment `varnishd` is started with, to allow parallel `varnishd` processes to run with different environment variables. `SetEnv` rejects keys that don't follow POSIX environment variable name syntax (`[A-Za-z_][A-Za-z0-9_]*`); the error is deferred and returned by `Start()`. Setting the same key twice replaces the previous value.
