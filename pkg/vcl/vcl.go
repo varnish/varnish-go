@@ -1,3 +1,14 @@
+// Package vcl parses, renders, and inspects Varnish Configuration Language (VCL) source.
+//
+// It wraps a vendored copy of github.com/perbu/vclparser (see NOTICE.md) behind a small
+// builder API:
+//
+//	v, err := vcl.NewParser(input).Parse()
+//	if err != nil {
+//		// handle error
+//	}
+//	fmt.Print(v.String()) // re-rendered VCL
+//	prog := v.AST()        // the parsed *ast.Program
 package vcl
 
 import (
