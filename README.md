@@ -52,7 +52,7 @@ Reports the installed Varnish edition (open-source or Enterprise), version strin
 go get github.com/varnish/varnish-go/version
 ```
 
-### [`pkg/vcl`](https://pkg.go.dev/github.com/varnish/varnish-go/pkg/vcl) — parse and render VCL
+### [`vcl`](https://pkg.go.dev/github.com/varnish/varnish-go/vcl) — parse and render VCL
 
 Parses Varnish Configuration Language (VCL) source into an AST, and renders it back. Pure Go,
 no CGo and no libvarnishapi required — unlike the other packages above.
@@ -67,5 +67,5 @@ prog := v.AST()        // the parsed *ast.Program
 ```
 
 ```shell
-go get github.com/varnish/varnish-go/pkg/vcl
+go get github.com/varnish/varnish-go/vcl
 ```

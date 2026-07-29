@@ -1,0 +1,479 @@
+package analyzer
+
+import (
+	"strings"
+	"testing"
+
+	ast2 "github.com/varnish/varnish-go/vcl/ast"
+	"github.com/varnish/varnish-go/vcl/lexer"
+	"github.com/varnish/varnish-go/vcl/parser"
+	types2 "github.com/varnish/varnish-go/vcl/types"
+	"github.com/varnish/varnish-go/vcl/vcc"
+)
+
+// Use shared test utilities from test_utils.go
+
+func parseVCL(t *testing.T, vclCode string) *ast2.Program {
+	// Use lexer and parser directly to avoid import cycle
+	l := lexer.New(vclCode, "test.vcl")
+	p := parser.New(l, vclCode, "test.vcl")
+	program := p.ParseProgram()
+
+	if len(p.Errors()) > 0 {
+		t.Fatalf("Failed to parse VCL: %v", p.Errors()[0])
+	}
+	return program
+}
+
+func TestValidateImport(t *testing.T) {
+	registry := setupTestRegistry(t)
+	symbolTable := types2.NewSymbolTable()
+	validator := NewVMODValidator(registry, symbolTable)
+
+	// Test valid import
+	vclCode := `vcl 4.0;
+import std;`
+
+	program := parseVCL(t, vclCode)
+	errors := validator.Validate(program)
+
+	if len(errors) != 0 {
+		t.Errorf("Valid import should not produce errors, got: %v", errors)
+	}
+
+	// Verify module is registered in symbol table
+	if !symbolTable.IsModuleImported("std") {
+		t.Error("Module 'std' should be imported in symbol table")
+	}
+
+	// Test invalid import
+	vclCode = `vcl 4.0;
+import nonexistent;`
+
+	program = parseVCL(t, vclCode)
+	errors = validator.Validate(program)
+
+	if len(errors) == 0 {
+		t.Error("Invalid import should produce errors")
+	}
+}
+
+func TestValidateFunctionCall(t *testing.T) {
+	registry := setupTestRegistry(t)
+	symbolTable := types2.NewSymbolTable()
+	validator := NewVMODValidator(registry, symbolTable)
+
+	// Import module first
+	vclCode := `vcl 4.0;
+import std;
+
+sub vcl_recv {
+    set req.http.upper = std.toupper("hello");
+}`
+
+	program := parseVCL(t, vclCode)
+	errors := validator.Validate(program)
+
+	if len(errors) != 0 {
+		t.Errorf("Valid function call should not produce errors, got: %v", errors)
+	}
+
+	// Test function call without import
+	// Create a fresh symbol table for this test
+	symbolTable = types2.NewSymbolTable()
+	validator = NewVMODValidator(registry, symbolTable)
+
+	vclCode = `vcl 4.0;
+
+sub vcl_recv {
+    set req.http.upper = std.toupper("hello");
+}`
+
+	program = parseVCL(t, vclCode)
+	errors = validator.Validate(program)
+
+	if len(errors) == 0 {
+		t.Error("Function call without import should produce errors")
+	}
+
+	// Test non-existent function
+	vclCode = `vcl 4.0;
+import std;
+
+sub vcl_recv {
+    set req.http.result = std.nonexistent("hello");
+}`
+
+	program = parseVCL(t, vclCode)
+	errors = validator.Validate(program)
+
+	if len(errors) == 0 {
+		t.Error("Non-existent function call should produce errors")
+	}
+}
+
+func TestValidateObjectInstantiation(t *testing.T) {
+	registry := setupTestRegistry(t)
+	symbolTable := types2.NewSymbolTable()
+	validator := NewVMODValidator(registry, symbolTable)
+
+	// Test valid object instantiation
+	vclCode := `vcl 4.0;
+import directors;
+
+sub vcl_init {
+    new cluster = directors.round_robin();
+}`
+
+	program := parseVCL(t, vclCode)
+	errors := validator.Validate(program)
+
+	if len(errors) != 0 {
+		t.Errorf("Valid object instantiation should not produce errors, got: %v", errors)
+	}
+
+	// Test object instantiation without import
+	vclCode = `vcl 4.0;
+
+sub vcl_init {
+    new cluster = directors.round_robin();
+}`
+
+	program = parseVCL(t, vclCode)
+	errors = validator.Validate(program)
+
+	if len(errors) == 0 {
+		t.Error("Object instantiation without import should produce errors")
+	}
+
+	// Test non-existent object
+	vclCode = `vcl 4.0;
+import directors;
+
+sub vcl_init {
+    new cluster = directors.nonexistent();
+}`
+
+	program = parseVCL(t, vclCode)
+	errors = validator.Validate(program)
+
+	if len(errors) == 0 {
+		t.Error("Non-existent object instantiation should produce errors")
+	}
+}
+
+func TestValidateMethodCall(t *testing.T) {
+	registry := setupTestRegistry(t)
+	symbolTable := types2.NewSymbolTable()
+	validator := NewVMODValidator(registry, symbolTable)
+
+	// Test valid method call
+	vclCode := `vcl 4.0;
+import directors;
+
+backend web1 {
+    .host = "127.0.0.1";
+    .port = "8080";
+}
+
+sub vcl_init {
+    new cluster = directors.round_robin();
+    cluster.add_backend(web1);
+}
+
+sub vcl_recv {
+    set req.backend_hint = cluster.backend();
+}`
+
+	program := parseVCL(t, vclCode)
+	errors := validator.Validate(program)
+
+	if len(errors) != 0 {
+		t.Errorf("Valid method call should not produce errors, got: %v", errors)
+	}
+}
+
+func TestValidateComplexVCL(t *testing.T) {
+	registry := setupTestRegistry(t)
+	symbolTable := types2.NewSymbolTable()
+	validator := NewVMODValidator(registry, symbolTable)
+
+	// Test complex VCL with multiple VMODs
+	vclCode := `vcl 4.0;
+
+import std;
+import directors;
+
+backend web1 {
+    .host = "127.0.0.1";
+    .port = "8080";
+}
+
+backend web2 {
+    .host = "127.0.0.1";
+    .port = "8081";
+}
+
+sub vcl_init {
+    new cluster = directors.round_robin();
+    cluster.add_backend(web1);
+    cluster.add_backend(web2);
+
+    new hash_cluster = directors.hash();
+    hash_cluster.add_backend(web1, 1.0);
+    hash_cluster.add_backend(web2, 2.0);
+}
+
+sub vcl_recv {
+    if (std.file_exists("/maintenance")) {
+        return (synth(503, "Maintenance"));
+    }
+
+    std.log("Processing request for " + req.url);
+
+    if (req.url ~ "^/hash/") {
+        set req.backend_hint = hash_cluster.backend(req.url);
+    } else {
+        set req.backend_hint = cluster.backend();
+    }
+
+    set req.http.x-random = std.random(1.0, 100.0);
+    set req.http.x-upper = std.toupper(req.http.host);
+}`
+
+	program := parseVCL(t, vclCode)
+	errors := validator.Validate(program)
+
+	if len(errors) != 0 {
+		t.Errorf("Complex valid VCL should not produce errors, got: %v", errors)
+	}
+}
+
+func TestValidateWithErrors(t *testing.T) {
+	registry := setupTestRegistry(t)
+	symbolTable := types2.NewSymbolTable()
+	validator := NewVMODValidator(registry, symbolTable)
+
+	// Test VCL with multiple errors
+	vclCode := `vcl 4.0;
+
+import std;
+import nonexistent;
+
+sub vcl_recv {
+    # Missing import for directors
+    new cluster = directors.round_robin();
+
+    # Non-existent function
+    set req.http.result = std.nonexistent("test");
+
+    # Valid function call
+    set req.http.upper = std.toupper("hello");
+
+    # Function call on non-imported module
+    set req.http.other = other.function("test");
+}`
+
+	program := parseVCL(t, vclCode)
+	errors := validator.Validate(program)
+
+	// Should have multiple errors
+	if len(errors) < 3 {
+		t.Errorf("Expected at least 3 errors, got %d: %v", len(errors), errors)
+	}
+
+	// Check that we have errors for:
+	// 1. import nonexistent
+	// 2. directors not imported
+	// 3. std.nonexistent function
+	// 4. other module not imported
+
+	errorStrings := strings.Join(errors, " ")
+
+	if !strings.Contains(errorStrings, "nonexistent") {
+		t.Error("Should have error about nonexistent module")
+	}
+
+	if !strings.Contains(errorStrings, "directors") {
+		t.Error("Should have error about directors module")
+	}
+}
+
+func TestInferExpressionType(t *testing.T) {
+	registry := setupTestRegistry(t)
+	symbolTable := types2.NewSymbolTable()
+	validator := NewVMODValidator(registry, symbolTable)
+
+	tests := []struct {
+		name     string
+		expr     ast2.Expression
+		expected string
+	}{
+		{
+			name:     "string literal",
+			expr:     &ast2.StringLiteral{Value: "hello"},
+			expected: "STRING",
+		},
+		{
+			name:     "integer literal",
+			expr:     &ast2.IntegerLiteral{Value: 42},
+			expected: "INT",
+		},
+		{
+			name:     "float literal",
+			expr:     &ast2.FloatLiteral{Value: 3.14},
+			expected: "REAL",
+		},
+		{
+			name:     "boolean literal",
+			expr:     &ast2.BooleanLiteral{Value: true},
+			expected: "BOOL",
+		},
+		{
+			name:     "identifier",
+			expr:     &ast2.Identifier{Name: "req.method"},
+			expected: "STRING", // Default assumption
+		},
+		{
+			name:     "time expression",
+			expr:     &ast2.TimeExpression{Value: "30s"},
+			expected: "DURATION",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			vccType := validator.inferExpressionType(test.expr)
+			if string(vccType) != test.expected {
+				t.Errorf("Expected type %s, got %s", test.expected, vccType)
+			}
+		})
+	}
+}
+
+func TestTypeConversion(t *testing.T) {
+	registry := setupTestRegistry(t)
+	symbolTable := types2.NewSymbolTable()
+	validator := NewVMODValidator(registry, symbolTable)
+
+	// Test VCC to Symbol type conversion
+	vccTests := map[string]types2.Type{
+		"STRING":      types2.String,
+		"INT":         types2.Int,
+		"REAL":        types2.Real,
+		"BOOL":        types2.Bool,
+		"BACKEND":     types2.Backend,
+		"HEADER":      types2.Header,
+		"DURATION":    types2.Duration,
+		"BYTES":       types2.Bytes,
+		"IP":          types2.IP,
+		"TIME":        types2.Time,
+		"VOID":        types2.Void,
+		"STRING_LIST": types2.String, // Maps to string
+	}
+
+	for vccTypeStr, expectedSymbolType := range vccTests {
+		vccType := vcc.VCCType(vccTypeStr)
+		symbolType := validator.convertVCCTypeToSymbolType(vccType)
+		if symbolType != expectedSymbolType {
+			t.Errorf("VCC type %s: expected symbol type %s, got %s",
+				vccTypeStr, expectedSymbolType, symbolType)
+		}
+	}
+
+	// Test Symbol to VCC type conversion
+	symbolTests := map[types2.Type]string{
+		types2.String:   "STRING",
+		types2.Int:      "INT",
+		types2.Real:     "REAL",
+		types2.Bool:     "BOOL",
+		types2.Backend:  "BACKEND",
+		types2.Header:   "HEADER",
+		types2.Duration: "DURATION",
+		types2.Bytes:    "BYTES",
+		types2.IP:       "IP",
+		types2.Time:     "TIME",
+		types2.Void:     "VOID",
+	}
+
+	for symbolType, expectedVCCTypeStr := range symbolTests {
+		vccType := validator.convertSymbolTypeToVCCType(symbolType)
+		if string(vccType) != expectedVCCTypeStr {
+			t.Errorf("Symbol type %s: expected VCC type %s, got %s",
+				symbolType, expectedVCCTypeStr, vccType)
+		}
+	}
+}
+
+// TestNamedArgumentRegression tests specific edge cases for named parameter mapping
+func TestNamedArgumentRegression(t *testing.T) {
+
+	tests := []struct {
+		name          string
+		vcl           string
+		expectErrors  bool
+		errorContains string
+	}{
+		{
+			name: "time_format with positional format and named time argument",
+			vcl: `vcl 4.0;
+import utils;
+import std;
+
+sub vcl_deliver {
+    set resp.http.timestamp = utils.time_format("%format", time = std.real2time(-1, now));
+}`,
+			expectErrors: false,
+		},
+		{
+			name: "time_format with named format and named time argument",
+			vcl: `vcl 4.0;
+import utils;
+import std;
+
+sub vcl_deliver {
+    set resp.http.timestamp = utils.time_format(format = "%Y-%m-%d", time = std.real2time(-1, now));
+}`,
+			expectErrors: false,
+		},
+		{
+			name: "time_format with all named arguments",
+			vcl: `vcl 4.0;
+import utils;
+import std;
+
+sub vcl_deliver {
+    set resp.http.timestamp = utils.time_format(format = "%Y-%m-%d", local_time = true, time = std.real2time(-1, now));
+}`,
+			expectErrors: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			registry := setupTestRegistry(t)
+			validator := NewVMODValidator(registry, types2.NewSymbolTable())
+			program := parseVCL(t, test.vcl)
+			errors := validator.Validate(program)
+
+			if test.expectErrors && len(errors) == 0 {
+				t.Errorf("Expected errors but got none")
+			} else if !test.expectErrors && len(errors) > 0 {
+				t.Errorf("Expected no errors but got: %v", errors)
+			}
+
+			if test.errorContains != "" {
+				found := false
+				for _, err := range errors {
+					if strings.Contains(err, test.errorContains) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("Expected error containing '%s' but got: %v", test.errorContains, errors)
+				}
+			}
+		})
+	}
+}
