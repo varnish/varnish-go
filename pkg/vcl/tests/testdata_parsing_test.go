@@ -1,11 +1,11 @@
-package vclparser_test
+package vcl_test
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/perbu/vclparser/pkg/parser"
+	"github.com/varnish/varnish-go/pkg/vcl/parser"
 )
 
 // TestAllTestdataVCLFiles tests that all VCL files in testdata/ can be parsed successfully

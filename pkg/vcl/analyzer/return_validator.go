@@ -3,8 +3,8 @@ package analyzer
 import (
 	"fmt"
 
-	"github.com/perbu/vclparser/pkg/ast"
-	"github.com/perbu/vclparser/pkg/metadata"
+	"github.com/varnish/varnish-go/pkg/vcl/ast"
+	"github.com/varnish/varnish-go/pkg/vcl/metadata"
 )
 
 // ReturnActionValidator validates return statements against VCL metadata

@@ -6,9 +6,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/perbu/vclparser/pkg/ast"
-	"github.com/perbu/vclparser/pkg/parser"
-	"github.com/perbu/vclparser/pkg/renderer"
+	"github.com/varnish/varnish-go/pkg/vcl/ast"
+	"github.com/varnish/varnish-go/pkg/vcl/parser"
+	"github.com/varnish/varnish-go/pkg/vcl/renderer"
 )
 
 func main() {

@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/perbu/vclparser/pkg/vmod"
+	"github.com/varnish/varnish-go/pkg/vcl/vmod"
 )
 
 // setupTestRegistry creates a test VMOD registry with common VCC definitions

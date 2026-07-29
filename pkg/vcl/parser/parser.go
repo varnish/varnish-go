@@ -5,9 +5,9 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/perbu/vclparser/pkg/ast"
-	"github.com/perbu/vclparser/pkg/lexer"
-	"github.com/perbu/vclparser/pkg/types"
+	"github.com/varnish/varnish-go/pkg/vcl/ast"
+	"github.com/varnish/varnish-go/pkg/vcl/lexer"
+	"github.com/varnish/varnish-go/pkg/vcl/types"
 )
 
 // Option configures parser behavior
@@ -100,7 +100,7 @@ func New(l *lexer.Lexer, input, filename string, opts ...Option) *Parser {
 		input:           input,
 		filename:        filename,
 		symbolTable:     types.NewSymbolTable(),
-		maxErrors:       8, // Default: stop after 8 errors
+		maxErrors:       8,  // Default: stop after 8 errors
 		includeMaxDepth: 10, // Default: max 10 levels of includes
 	}
 

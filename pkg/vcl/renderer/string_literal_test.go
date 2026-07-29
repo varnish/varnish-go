@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/perbu/vclparser/pkg/parser"
+	"github.com/varnish/varnish-go/pkg/vcl/parser"
 )
 
 // VCL strings carry no escape sequences: varnish's lexer copies the bytes

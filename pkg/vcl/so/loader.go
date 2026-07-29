@@ -11,7 +11,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/perbu/vclparser/pkg/vcc"
+	"github.com/varnish/varnish-go/pkg/vcl/vcc"
 )
 
 const (

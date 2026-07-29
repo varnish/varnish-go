@@ -3,7 +3,7 @@ package types
 import (
 	"testing"
 
-	"github.com/perbu/vclparser/pkg/metadata"
+	"github.com/varnish/varnish-go/pkg/vcl/metadata"
 )
 
 func TestMetadataSymbolTable_LoadBuiltinSymbols(t *testing.T) {

@@ -1,4 +1,4 @@
-package vclparser_test
+package vcl_test
 
 import (
 	"os"
@@ -6,11 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/perbu/vclparser/pkg/analyzer"
-	"github.com/perbu/vclparser/pkg/lexer"
-	"github.com/perbu/vclparser/pkg/parser"
-	"github.com/perbu/vclparser/pkg/types"
-	"github.com/perbu/vclparser/pkg/vmod"
+	"github.com/varnish/varnish-go/pkg/vcl/analyzer"
+	"github.com/varnish/varnish-go/pkg/vcl/lexer"
+	"github.com/varnish/varnish-go/pkg/vcl/parser"
+	"github.com/varnish/varnish-go/pkg/vcl/types"
+	"github.com/varnish/varnish-go/pkg/vcl/vmod"
 )
 
 // setupRealWorldVMODs creates VCC files for VMODs found in vmod-vcl.md

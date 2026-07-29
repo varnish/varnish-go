@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/perbu/vclparser/pkg/vcc"
+	"github.com/varnish/varnish-go/pkg/vcl/vcc"
 )
 
 func TestLoadModuleFromSO_ParsesStdFunctions(t *testing.T) {

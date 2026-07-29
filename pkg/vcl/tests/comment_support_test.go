@@ -1,11 +1,11 @@
-package vclparser
+package vcl
 
 import (
 	"strings"
 	"testing"
 
-	"github.com/perbu/vclparser/pkg/parser"
-	"github.com/perbu/vclparser/pkg/renderer"
+	"github.com/varnish/varnish-go/pkg/vcl/parser"
+	"github.com/varnish/varnish-go/pkg/vcl/renderer"
 )
 
 // TestCommentPreservation tests that comments are preserved during parsing

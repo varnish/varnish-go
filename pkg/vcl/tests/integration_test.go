@@ -1,4 +1,4 @@
-package vclparser_test
+package vcl_test
 
 import (
 	"os"
@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/perbu/vclparser/pkg/analyzer"
-	"github.com/perbu/vclparser/pkg/ast"
-	"github.com/perbu/vclparser/pkg/vmod"
+	"github.com/varnish/varnish-go/pkg/vcl/analyzer"
+	"github.com/varnish/varnish-go/pkg/vcl/ast"
+	"github.com/varnish/varnish-go/pkg/vcl/vmod"
 )
 
 // Integration test for VMOD validation functionality

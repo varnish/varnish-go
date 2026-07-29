@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/perbu/vclparser/pkg/ast"
-	"github.com/perbu/vclparser/pkg/metadata"
-	"github.com/perbu/vclparser/pkg/types"
+	"github.com/varnish/varnish-go/pkg/vcl/ast"
+	"github.com/varnish/varnish-go/pkg/vcl/metadata"
+	"github.com/varnish/varnish-go/pkg/vcl/types"
 )
 
 // VariableAccessValidator validates variable access permissions against VCL metadata

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/perbu/vclparser/pkg/parser"
+	"github.com/varnish/varnish-go/pkg/vcl/parser"
 )
 
 // TestAnalyzerIntegration tests the complete integration through the main Analyzer

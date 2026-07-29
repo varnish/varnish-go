@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/perbu/vclparser/pkg/ast"
-	"github.com/perbu/vclparser/pkg/metadata"
+	"github.com/varnish/varnish-go/pkg/vcl/ast"
+	"github.com/varnish/varnish-go/pkg/vcl/metadata"
 )
 
 func TestVersionValidatorExtractVCLVersion(t *testing.T) {

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/perbu/vclparser/pkg/analyzer"
-	"github.com/perbu/vclparser/pkg/parser"
+	"github.com/varnish/varnish-go/pkg/vcl/analyzer"
+	"github.com/varnish/varnish-go/pkg/vcl/parser"
 )
 
 func main() {

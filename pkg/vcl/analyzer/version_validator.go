@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/perbu/vclparser/pkg/ast"
-	"github.com/perbu/vclparser/pkg/metadata"
+	"github.com/varnish/varnish-go/pkg/vcl/ast"
+	"github.com/varnish/varnish-go/pkg/vcl/metadata"
 )
 
 // VersionValidator validates VCL version compatibility against metadata

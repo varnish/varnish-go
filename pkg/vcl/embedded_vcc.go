@@ -1,4 +1,4 @@
-package vclparser
+package vcl
 
 import (
 	"embed"
