@@ -14,7 +14,6 @@ package vcl
 import (
 	"github.com/varnish/varnish-go/vcl/ast"
 	"github.com/varnish/varnish-go/vcl/parser"
-	"github.com/varnish/varnish-go/vcl/renderer"
 )
 
 // VclParser builds a Vcl by configuring and running the underlying parser.
@@ -88,9 +87,10 @@ type Vcl struct {
 	program *ast.Program
 }
 
-// String renders the parsed program back to VCL source.
+// String renders the parsed program back to VCL source, using RenderBuilder's defaults
+// (4-space indent, comments preserved).
 func (v *Vcl) String() string {
-	return renderer.Render(v.program)
+	return v.RenderBuilder().SpaceIndent(4).Render()
 }
 
 // AST returns the parsed abstract syntax tree.
