@@ -12,20 +12,38 @@ import (
 // VCLRenderer implements a visitor that renders AST nodes back to VCL source code
 type VCLRenderer struct {
 	ast.BaseVisitor
-	builder strings.Builder
-	indent  int
+	builder        strings.Builder
+	indent         int // current nesting depth
+	indentWidth    int // spaces per indentation level
+	removeComments bool
+}
+
+// Option configures a VCLRenderer.
+type Option func(*VCLRenderer)
+
+// WithIndentWidth sets the number of spaces used per indentation level. 0 renders flat, with
+// no indentation. Default: 4.
+func WithIndentWidth(width int) Option {
+	return func(r *VCLRenderer) { r.indentWidth = width }
+}
+
+// WithoutComments controls whether comments are stripped from the rendered output.
+func WithoutComments(remove bool) Option {
+	return func(r *VCLRenderer) { r.removeComments = remove }
 }
 
 // New creates a new VCL renderer
-func New() *VCLRenderer {
-	return &VCLRenderer{
-		indent: 0,
+func New(opts ...Option) *VCLRenderer {
+	r := &VCLRenderer{indent: 0, indentWidth: 4}
+	for _, opt := range opts {
+		opt(r)
 	}
+	return r
 }
 
 // Render renders an AST program to VCL source code
-func Render(program *ast.Program) string {
-	renderer := New()
+func Render(program *ast.Program, opts ...Option) string {
+	renderer := New(opts...)
 	ast.Accept(program, renderer)
 	return renderer.builder.String()
 }
@@ -44,7 +62,7 @@ func (r *VCLRenderer) writeLine(s string) {
 
 func (r *VCLRenderer) writeIndent() {
 	for i := 0; i < r.indent; i++ {
-		r.builder.WriteString("    ")
+		r.builder.WriteString(strings.Repeat(" ", r.indentWidth))
 	}
 }
 
@@ -62,6 +80,9 @@ func (r *VCLRenderer) indentDec() {
 
 // renderLeadingComments renders comments that appear before a node
 func (r *VCLRenderer) renderLeadingComments(comments []ast.Comment) {
+	if r.removeComments {
+		return
+	}
 	for _, comment := range comments {
 		r.writeIndent()
 		r.write(comment.Text)
@@ -71,7 +92,7 @@ func (r *VCLRenderer) renderLeadingComments(comments []ast.Comment) {
 
 // renderTrailingComment renders a comment that appears on the same line as a node
 func (r *VCLRenderer) renderTrailingComment(comment *ast.Comment) {
-	if comment != nil {
+	if comment != nil && !r.removeComments {
 		r.write(" ")
 		r.write(comment.Text)
 	}
