@@ -1,8 +1,8 @@
 package vcl
 
 import (
-	"github.com/varnish/varnish-go/vcl/ast"
-	"github.com/varnish/varnish-go/vcl/renderer"
+	"github.com/varnish/varnish-go/sdk/vcl/ast"
+	"github.com/varnish/varnish-go/sdk/vcl/renderer"
 )
 
 // VclRenderBuilder configures how an already-parsed Vcl is rendered back to VCL source.
