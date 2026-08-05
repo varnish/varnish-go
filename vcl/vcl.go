@@ -26,10 +26,10 @@ type VclParser struct {
 
 // NewParser creates a VclParser for the given VCL source.
 func NewParser(input string) *VclParser {
-	return &VclParser{input: input, filename: "input.vcl"}
+	return &VclParser{input: input, filename: "<input>"}
 }
 
-// Filename sets the filename reported in parse errors. Defaults to "input.vcl".
+// Filename sets the filename reported in parse errors. Defaults to "<input>".
 func (p *VclParser) Filename(name string) *VclParser {
 	p.filename = name
 	return p
