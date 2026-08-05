@@ -8,7 +8,11 @@ import (
 	"sync"
 )
 
-// syslogState captures the stdout+stderr stream of a running Varnish process.
+// syslogState captures the stdout+stderr stream of a running Varnish process,
+// fed via [varnish.VarnishBuilder.Output]. Unlike the varnish package's own
+// internal (diagnostics-only) capture, this one supports accumulation and
+// subscription: convenient for tests, but not something a long-running
+// application should use.
 type syslogState struct {
 	mu        sync.Mutex
 	lines     []string
@@ -18,19 +22,17 @@ type syslogState struct {
 	closeOnce sync.Once
 	pw        *io.PipeWriter
 	wg        sync.WaitGroup
-	exited    chan struct{} // closed when the process exits
 }
 
 func newSyslogState(collect bool, pw *io.PipeWriter) *syslogState {
 	return &syslogState{
 		collect: collect,
 		pw:      pw,
-		exited:  make(chan struct{}),
 	}
 }
 
 // transfer adjusts the collection mode and registers pre-subscribed channels.
-// Called once on successful Start() to hand off builder-time configuration.
+// Called once Build() has succeeded, to hand off builder-time configuration.
 func (ss *syslogState) transfer(collect bool, preSubs []chan string) {
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
@@ -55,9 +57,9 @@ func (ss *syslogState) closeAllSubs() {
 	ss.subs = nil
 }
 
-// start launches two goroutines: one that scans lines from pr and broadcasts
-// them, and one that waits for the process to exit and then closes the pipe.
-func (ss *syslogState) start(pr *io.PipeReader, wait func() error) {
+// start scans lines from pr and broadcasts them, until pr is closed (via
+// [syslogState.stop], which closes the write end fed by [varnish.VarnishBuilder.Output]).
+func (ss *syslogState) start(pr *io.PipeReader) {
 	ss.wg.Add(1)
 	go func() {
 		defer ss.wg.Done()
@@ -82,14 +84,6 @@ func (ss *syslogState) start(pr *io.PipeReader, wait func() error) {
 				}
 			}
 		}
-	}()
-
-	ss.wg.Add(1)
-	go func() {
-		defer ss.wg.Done()
-		_ = wait()
-		close(ss.exited)
-		ss.closePipe()
 	}()
 }
 
