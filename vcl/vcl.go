@@ -1,7 +1,7 @@
 // Package vcl parses, renders, and inspects Varnish Configuration Language (VCL) source.
 //
-// It wraps a vendored copy of github.com/perbu/vclparser (see NOTICE.md) behind a small
-// builder API:
+// It wraps a vendored copy of github.com/perbu/vclparser (see sdk/vcl/NOTICE.md) behind a
+// small builder API:
 //
 //	v, err := vcl.NewParser(input).Parse()
 //	if err != nil {
@@ -12,8 +12,8 @@
 package vcl
 
 import (
-	"github.com/varnish/varnish-go/vcl/ast"
-	"github.com/varnish/varnish-go/vcl/parser"
+	"github.com/varnish/varnish-go/sdk/vcl/ast"
+	"github.com/varnish/varnish-go/sdk/vcl/parser"
 )
 
 // VclParser builds a Vcl by configuring and running the underlying parser.
