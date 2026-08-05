@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/varnish/varnish-go/adm"
@@ -457,11 +458,13 @@ func (v *Varnish) AdmConn() *adm.Conn {
 	return v.conn
 }
 
-// Stop asks the running Varnish instance to shut down gracefully, force-killing
-// it after [VarnishBuilder.StopTimeout] if it doesn't exit on its own.
-// The workdir is never removed; that's the caller's responsibility.
+// Stop asks the running Varnish instance to shut down gracefully by sending
+// SIGTERM to the manager process (which itself stops the child before
+// exiting), force-killing it after [VarnishBuilder.StopTimeout] if it
+// doesn't exit on its own. The workdir is never removed; that's the
+// caller's responsibility.
 func (v *Varnish) Stop() {
-	_ = v.conn.Stop(context.Background())
+	_ = v.cmd.Process.Signal(syscall.SIGTERM)
 
 	if v.syslogs != nil {
 		select {
