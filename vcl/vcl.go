@@ -3,7 +3,14 @@
 // It wraps a vendored copy of github.com/perbu/vclparser (see sdk/vcl/NOTICE.md) behind a
 // small builder API:
 //
-//	v, err := vcl.NewParser(input).Parse()
+//	const src = `vcl 4.1;
+//
+//	sub vcl_recv {
+//		return (hash);
+//	}
+//	`
+//
+//	v, err := vcl.NewParser(src).Parse()
 //	if err != nil {
 //		// handle error
 //	}
