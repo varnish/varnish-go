@@ -50,4 +50,4 @@ jobs:
         run: go test ${{ matrix.test_tags }} ./...
 
       - name: Doc
-        run: go list ./... | xargs -I{} go doc {}
+        run: go list -f '{{if or .GoFiles .CgoFiles}}{{.ImportPath}}{{end}}' ./... | xargs -I{} go doc {}
