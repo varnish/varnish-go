@@ -49,6 +49,8 @@ func newStatReader(t *testing.T, v *vtest.Varnish) *stat.StatReader {
 	r, err := stat.New().
 		SetName(v.Name()).
 		SetTimeout(5 * time.Second).
+		SetIncludes([]string{"MAIN.*"}).
+		SetExcludes([]string{"MGT.*"}).
 		Attach()
 	if err != nil {
 		t.Fatal(err)
@@ -131,6 +133,10 @@ func TestCounters(t *testing.T) {
 	}
 	if _, ok := c.Stats["MAIN.does_not_exist"]; ok {
 		t.Error("expected no counter for unknown name")
+	}
+
+	if _, ok = c.Stats["MGT.uptime"]; ok {
+		t.Fatal("expected MGT.uptime to be excluded from Stats")
 	}
 }
 

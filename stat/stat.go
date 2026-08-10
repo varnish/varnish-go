@@ -221,6 +221,36 @@ func (b *StatReaderBuilder) SetTimeout(timeout time.Duration) *StatReaderBuilder
 	return b
 }
 
+// SetIncludes sets the field inclusion globs.
+func (b *StatReaderBuilder) SetIncludes(inc []string) *StatReaderBuilder {
+	if b.err != nil {
+		return b
+	}
+	for _, i := range inc {
+		cinc := C.CString(i)
+		defer C.free(unsafe.Pointer(cinc))
+		if ret := C.VSC_Arg(b.vsc, 'I', cinc); ret < 0 {
+			b.err = fmt.Errorf("VSC_Arg -I %s: %s", i, C.GoString(C.VSM_Error(b.vsm)))
+		}
+	}
+	return b
+}
+
+// SetExcludes sets the field exclusion globs.
+func (b *StatReaderBuilder) SetExcludes(xc []string) *StatReaderBuilder {
+	if b.err != nil {
+		return b
+	}
+	for _, x := range xc {
+		cxc := C.CString(x)
+		defer C.free(unsafe.Pointer(cxc))
+		if ret := C.VSC_Arg(b.vsc, 'X', cxc); ret < 0 {
+			b.err = fmt.Errorf("VSC_Arg -X %s: %s", x, C.GoString(C.VSM_Error(b.vsm)))
+		}
+	}
+	return b
+}
+
 // Attach connects to the Varnish shared memory segment and returns a
 // [StatReader]. If progress is a non-negative file descriptor, a period is
 // written to it for each second spent waiting; pass -1 to suppress progress
