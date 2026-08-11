@@ -49,8 +49,8 @@ func newStatReader(t *testing.T, v *vtest.Varnish) *stat.StatReader {
 	r, err := stat.New().
 		SetName(v.Name()).
 		SetTimeout(5 * time.Second).
-		SetIncludes([]string{"MAIN.*"}).
-		SetExcludes([]string{"MGT.*"}).
+		SetFieldIncludes([]string{"MAIN.*"}).
+		SetFieldExcludes([]string{"MGT.*"}).
 		Attach()
 	if err != nil {
 		t.Fatal(err)
