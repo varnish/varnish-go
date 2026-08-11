@@ -222,7 +222,7 @@ func (b *StatReaderBuilder) SetTimeout(timeout time.Duration) *StatReaderBuilder
 }
 
 // SetFieldIncludes sets the field inclusion globs.
-func (b *StatReaderBuilder) SetFieldIncludes(inc []string) *StatReaderBuilder {
+func (b *StatReaderBuilder) SetFieldIncludes(inc ...string) *StatReaderBuilder {
 	if b.err != nil {
 		return b
 	}
@@ -237,7 +237,7 @@ func (b *StatReaderBuilder) SetFieldIncludes(inc []string) *StatReaderBuilder {
 }
 
 // SetFieldExcludes sets the field exclusion globs.
-func (b *StatReaderBuilder) SetFieldExcludes(xc []string) *StatReaderBuilder {
+func (b *StatReaderBuilder) SetFieldExcludes(xc ...string) *StatReaderBuilder {
 	if b.err != nil {
 		return b
 	}
