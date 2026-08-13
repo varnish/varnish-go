@@ -730,7 +730,6 @@ func TestReadOnlyParameter(t *testing.T) {
 func TestAddress(t *testing.T) {
 	t.Parallel()
 
-	listenerNames := []string{"EXTRA1", "EXTRA2"}
 	varnish, err := vtest.New().
 		Address("EXTRA1=127.0.0.1:0", "EXTRA2=127.0.0.1:0").
 		VclString(minimalVCL).
@@ -740,39 +739,53 @@ func TestAddress(t *testing.T) {
 	}
 	t.Cleanup(varnish.Stop)
 
-	listenAddresses, err := varnish.Adm("debug.listen_address")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	listenerURLs := make(map[string]string, len(listenerNames))
-	for _, line := range strings.Split(strings.TrimSpace(listenAddresses), "\n") {
-		fields := strings.Fields(line)
-		if len(fields) != 3 {
+	// Verify the Listeners map contains all expected entries.
+	for _, name := range []string{"HTTP", "EXTRA1", "EXTRA2"} {
+		addr := varnish.ListenAddr(name)
+		if addr == "" {
+			t.Errorf("ListenAddr(%q) is empty", name)
 			continue
 		}
-		for _, name := range listenerNames {
-			if fields[0] == name {
-				listenerURLs[name] = "http://" + net.JoinHostPort(fields[1], fields[2])
-			}
-		}
-	}
-
-	for _, name := range listenerNames {
-		listenerURL, ok := listenerURLs[name]
-		if !ok {
-			t.Errorf("listener %s not found in debug.listen_address output:\n%s", name, listenAddresses)
-			continue
-		}
-		resp, err := http.Get(listenerURL)
+		resp, err := http.Get("http://" + addr)
 		if err != nil {
-			t.Errorf("GET through listener %s: %v", name, err)
+			t.Errorf("GET through listener %s (%s): %v", name, addr, err)
 			continue
 		}
 		resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
 			t.Errorf("GET through listener %s returned %d, want %d", name, resp.StatusCode, http.StatusOK)
 		}
+	}
+}
+
+func TestAddressIPv6(t *testing.T) {
+	t.Parallel()
+
+	// Verify that an IPv6 listener is discoverable and reachable.
+	varnish, err := vtest.New().
+		Address("IPv6=[::1]:0").
+		VclString(minimalVCL).
+		Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(varnish.Stop)
+
+	addr := varnish.ListenAddr("IPv6")
+	if addr == "" {
+		t.Fatal("ListenAddr(\"IPv6\") is empty")
+	}
+	if !strings.HasPrefix(addr, "[::1]:") {
+		t.Fatalf("expected [::1]:port, got %s", addr)
+	}
+
+	resp, err := http.Get("http://" + addr)
+	if err != nil {
+		t.Fatalf("GET through IPv6 listener (%s): %v", addr, err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("GET through IPv6 listener returned %d, want %d", resp.StatusCode, http.StatusOK)
 	}
 }
 
