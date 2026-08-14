@@ -30,12 +30,12 @@ const workdirBase = "/var/lib/varnish"
 // withContext runs fn under ctx. It forwards the deadline to the connection and
 // spawns a goroutine that expires the connection immediately if the context is
 // cancelled mid-I/O. The goroutine is guaranteed to exit before withContext returns.
-func (conn *Conn) withContext(ctx context.Context, fn func() error) error {
+func (c *Conn) withContext(ctx context.Context, fn func() error) error {
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
 	deadline, _ := ctx.Deadline() // zero clears deadline
-	conn.SetDeadline(deadline)
+	c.SetDeadline(deadline)
 
 	done := make(chan struct{})
 	var wg sync.WaitGroup
@@ -47,7 +47,7 @@ func (conn *Conn) withContext(ctx context.Context, fn func() error) error {
 			select {
 			case <-done: // fn already finished; don't clobber deadline
 			default:
-				conn.SetDeadline(time.Unix(1, 0)) // epoch+1s — always past, unblocks I/O immediately
+				c.SetDeadline(time.Unix(1, 0)) // epoch+1s — always past, unblocks I/O immediately
 			}
 		case <-done:
 		}
@@ -56,7 +56,7 @@ func (conn *Conn) withContext(ctx context.Context, fn func() error) error {
 		close(done)
 		wg.Wait()
 		if ctx.Err() == nil {
-			conn.SetDeadline(time.Time{}) // restore no-deadline only when context is still valid
+			c.SetDeadline(time.Time{}) // restore no-deadline only when context is still valid
 		}
 	}()
 
@@ -136,22 +136,22 @@ func findEndpointData(name string) (addrPorts []netip.AddrPort, secretPath strin
 	return
 }
 
-func (conn *Conn) authenticate(ctx context.Context, secretPath string) (err error) {
-	status, nonce, err := conn.ReadMessage(ctx)
+func (c *Conn) authenticate(ctx context.Context, secretPath string) (err error) {
+	status, nonce, err := c.ReadMessage(ctx)
 	if status != 107 {
 		err = fmt.Errorf("status should have been 107")
-		conn.Close()
+		c.Close()
 		return
 	}
 	if len(nonce) < 32 {
 		err = fmt.Errorf("nonce too short")
-		conn.Close()
+		c.Close()
 		return
 	}
 
 	secret, err := os.ReadFile(secretPath)
 	if err != nil {
-		conn.Close()
+		c.Close()
 		return
 	}
 	hasher := sha256.New()
@@ -161,7 +161,7 @@ func (conn *Conn) authenticate(ctx context.Context, secretPath string) (err erro
 	hasher.Write(nonce[:32])
 	hasher.Write([]byte("\n"))
 
-	_, err = conn.Ask(ctx, "auth", hex.EncodeToString(hasher.Sum(nil)))
+	_, err = c.Ask(ctx, "auth", hex.EncodeToString(hasher.Sum(nil)))
 	return
 }
 
@@ -261,24 +261,24 @@ func Accept(ctx context.Context, sock net.Listener, secretPath string) (*Conn, e
 
 // readMessageRaw reads one admin protocol message from the wire without context handling.
 // Callers are responsible for setting deadlines before calling.
-func (conn *Conn) readMessageRaw() (status int, message []byte, err error) {
+func (c *Conn) readMessageRaw() (status int, message []byte, err error) {
 	sz := 0
-	_, err = fmt.Fscanf(conn, "%d %d\n", &status, &sz)
+	_, err = fmt.Fscanf(c, "%d %d\n", &status, &sz)
 	if err != nil {
 		return
 	}
 	message = make([]byte, sz+1)
-	_, err = io.ReadFull(conn, message)
+	_, err = io.ReadFull(c, message)
 	return
 }
 
 // ReadMessage reads the next message from the admin socket.
 // Note that you probably only need this if you opened a raw connection to the socket,
 // possibly to read the authentication nonce.
-func (conn *Conn) ReadMessage(ctx context.Context) (status int, message []byte, err error) {
-	err = conn.withContext(ctx, func() error {
+func (c *Conn) ReadMessage(ctx context.Context) (status int, message []byte, err error) {
+	err = c.withContext(ctx, func() error {
 		var e error
-		status, message, e = conn.readMessageRaw()
+		status, message, e = c.readMessageRaw()
 		return e
 	})
 	return
@@ -286,16 +286,16 @@ func (conn *Conn) ReadMessage(ctx context.Context) (status int, message []byte, 
 
 // Ask sends a request to the admin socket. It joins all the provided strings with spaces and adds a newline
 // before pushing the buffer on the wire. This will error if the status code of the response isn't 200.
-func (conn *Conn) Ask(ctx context.Context, args ...string) (message string, err error) {
+func (c *Conn) Ask(ctx context.Context, args ...string) (message string, err error) {
 	command := strings.Join(args, " ") + "\n"
 	var status int
 	var buf []byte
-	err = conn.withContext(ctx, func() error {
-		if _, e := conn.Write([]byte(command)); e != nil {
+	err = c.withContext(ctx, func() error {
+		if _, e := c.Write([]byte(command)); e != nil {
 			return e
 		}
 		var e error
-		status, buf, e = conn.readMessageRaw()
+		status, buf, e = c.readMessageRaw()
 		return e
 	})
 	message = string(buf)
@@ -306,13 +306,13 @@ func (conn *Conn) Ask(ctx context.Context, args ...string) (message string, err 
 }
 
 // AskRaw is a lower-level version of [Conn.Ask] giving access to the status code and to the message as [[]byte].
-func (conn *Conn) AskRaw(ctx context.Context, args ...string) (status int, message []byte, err error) {
-	err = conn.withContext(ctx, func() error {
-		if _, e := conn.Write([]byte(strings.Join(args, " ") + "\n")); e != nil {
+func (c *Conn) AskRaw(ctx context.Context, args ...string) (status int, message []byte, err error) {
+	err = c.withContext(ctx, func() error {
+		if _, e := c.Write([]byte(strings.Join(args, " ") + "\n")); e != nil {
 			return e
 		}
 		var e error
-		status, message, e = conn.readMessageRaw()
+		status, message, e = c.readMessageRaw()
 		return e
 	})
 	return
