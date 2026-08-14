@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/varnish/varnish-go/stat"
+	"github.com/varnish/varnish-go/version"
 	"github.com/varnish/varnish-go/vtest"
 )
 
@@ -46,10 +48,13 @@ func startVarnish(t *testing.T) vtest.Varnish {
 
 func newStatReader(t *testing.T, v *vtest.Varnish) *stat.StatReader {
 	t.Helper()
-	r, err := stat.New().
+	b := stat.New().
 		SetName(v.Name()).
-		SetTimeout(5 * time.Second).
-		Attach()
+		SetTimeout(5 * time.Second)
+	if !version.IsEnterprise() {
+		b = b.SetFieldExcludes("MAIN.threads*", "MAIN.n_vcl").SetFieldIncludes("MAIN.*")
+	}
+	r, err := b.Attach()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,6 +136,20 @@ func TestCounters(t *testing.T) {
 	}
 	if _, ok := c.Stats["MAIN.does_not_exist"]; ok {
 		t.Error("expected no counter for unknown name")
+	}
+
+	if !version.IsEnterprise() {
+		for name := range c.Stats {
+			if !strings.HasPrefix(name, "MAIN.") {
+				t.Errorf("expected only MAIN.* counters, got %q", name)
+			}
+			if strings.HasPrefix(name, "MAIN.threads") {
+				t.Errorf("expected MAIN.threads* to be excluded, got %q", name)
+			}
+		}
+		if _, ok := c.Stats["MAIN.n_vcl"]; ok {
+			t.Fatal("expected MAIN.n_vcl to be excluded from Stats")
+		}
 	}
 }
 
