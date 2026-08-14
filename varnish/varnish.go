@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -215,11 +216,26 @@ type Varnish struct {
 	// [VarnishBuilder.HTTPSListener]).
 	TLSURL string
 
+	// listeners maps every named listener to its resolved "host:port"
+	// address. The map always contains the "HTTP" entry and, when
+	// [VarnishBuilder.HTTPSListener] was called, the "HTTPS" entry. Extra
+	// listeners added via [VarnishBuilder.Address] with a NAME=addr
+	// syntax are included under their given name.
+	listeners map[string]string
+
 	cmd         *exec.Cmd
 	name        string
 	stopTimeout time.Duration
 	conn        *adm.Conn
 	syslogs     *syslogState
+}
+
+// ListenAddr returns the resolved "host:port" for the named listener, or
+// an empty string if the name is unknown. IPv6 addresses are
+// bracket-wrapped so the result can be embedded directly in a URL
+// (e.g. "http://" + v.ListenAddr("IPv6") + "/path").
+func (v *Varnish) ListenAddr(name string) string {
+	return v.listeners[name]
 }
 
 // Build starts a Varnish instance using the options specified in VarnishBuilder.
@@ -432,18 +448,20 @@ func (v *Varnish) WaitRunning() error {
 
 			// Each line is either "name host port" (TCP listeners) or
 			// "name path -" (Unix domain sockets, no port to parse).
+			v.listeners = make(map[string]string)
 			for _, line := range strings.Split(strings.TrimSpace(resp), "\n") {
 				var lname, laddr string
 				var lport int
 				if _, scanErr := fmt.Sscanf(line, "%s %s %d", &lname, &laddr, &lport); scanErr != nil {
 					continue
 				}
-				// FIXME: IPv6
+				hostPort := net.JoinHostPort(laddr, strconv.Itoa(lport))
+				v.listeners[lname] = hostPort
 				switch lname {
 				case "HTTP":
-					v.URL = fmt.Sprintf("http://%s:%d", laddr, lport)
+					v.URL = "http://" + hostPort
 				case "HTTPS":
-					v.TLSURL = fmt.Sprintf("https://%s:%d", laddr, lport)
+					v.TLSURL = "https://" + hostPort
 				}
 			}
 			break
