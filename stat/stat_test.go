@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -49,8 +50,8 @@ func newStatReader(t *testing.T, v *vtest.Varnish) *stat.StatReader {
 	r, err := stat.New().
 		SetName(v.Name()).
 		SetTimeout(5*time.Second).
+		SetFieldExcludes("MAIN.threads*", "MAIN.n_vcl").
 		SetFieldIncludes("MAIN.*").
-		SetFieldExcludes("MGT.*", "LCK.*").
 		Attach()
 	if err != nil {
 		t.Fatal(err)
@@ -135,8 +136,16 @@ func TestCounters(t *testing.T) {
 		t.Error("expected no counter for unknown name")
 	}
 
-	if _, ok = c.Stats["MGT.uptime"]; ok {
-		t.Fatal("expected MGT.uptime to be excluded from Stats")
+	for name := range c.Stats {
+		if !strings.HasPrefix(name, "MAIN.") {
+			t.Errorf("expected only MAIN.* counters, got %q", name)
+		}
+		if strings.HasPrefix(name, "MAIN.threads") {
+			t.Errorf("expected MAIN.threads* to be excluded, got %q", name)
+		}
+	}
+	if _, ok := c.Stats["MAIN.n_vcl"]; ok {
+		t.Fatal("expected MAIN.n_vcl to be excluded from Stats")
 	}
 }
 
