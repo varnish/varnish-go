@@ -53,6 +53,8 @@ import (
 	"strconv"
 	"time"
 	"unsafe"
+
+	"github.com/varnish/varnish-go/version"
 )
 
 // Semantics describes how a counter's value should be interpreted.
@@ -221,9 +223,14 @@ func (b *StatReaderBuilder) SetTimeout(timeout time.Duration) *StatReaderBuilder
 	return b
 }
 
-// SetFieldIncludes sets the field inclusion globs.
+// SetFieldIncludes sets the field inclusion globs. Not supported on Varnish
+// Enterprise, whose libvarnishapi doesn't implement the -I filter.
 func (b *StatReaderBuilder) SetFieldIncludes(inc ...string) *StatReaderBuilder {
 	if b.err != nil {
+		return b
+	}
+	if version.IsEnterprise() {
+		b.err = fmt.Errorf("SetFieldIncludes: not supported on Varnish Enterprise %s", version.Version())
 		return b
 	}
 	for _, i := range inc {
@@ -236,9 +243,14 @@ func (b *StatReaderBuilder) SetFieldIncludes(inc ...string) *StatReaderBuilder {
 	return b
 }
 
-// SetFieldExcludes sets the field exclusion globs.
+// SetFieldExcludes sets the field exclusion globs. Not supported on Varnish
+// Enterprise, whose libvarnishapi doesn't implement the -X filter.
 func (b *StatReaderBuilder) SetFieldExcludes(xc ...string) *StatReaderBuilder {
 	if b.err != nil {
+		return b
+	}
+	if version.IsEnterprise() {
+		b.err = fmt.Errorf("SetFieldExcludes: not supported on Varnish Enterprise %s", version.Version())
 		return b
 	}
 	for _, x := range xc {
