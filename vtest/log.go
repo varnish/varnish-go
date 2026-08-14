@@ -30,9 +30,8 @@ func newLogState() *logState {
 // startCollector attaches a GroupingRaw reader with backlog enabled and starts
 // the background goroutine that accumulates records for Records(). Skipped when
 // NoRecordLogs is set on the builder.
-func (ls *logState) startCollector(name string) {
-	r, err := vsl.New().
-		SetName(name).
+func (ls *logState) startCollector(v *Varnish) {
+	r, err := v.LogReaderBuilder().
 		SetTimeout(5 * time.Second).
 		SetGrouping(vsl.GroupingRaw).
 		SetBacklog(true).
@@ -57,7 +56,7 @@ func (ls *logState) startCollector(name string) {
 	}()
 }
 
-// stopLogs cancels the shared log context and waits for all goroutines
+// stop cancels the shared log context and waits for all goroutines
 // (records collector and any active channels) to exit.
 func (ls *logState) stop() {
 	ls.cancel()
@@ -85,8 +84,7 @@ func (v *Varnish) RecordChannel() (<-chan vsl.Record, error) {
 		return nil, fmt.Errorf("vtest: varnish not started")
 	}
 
-	r, err := vsl.New().
-		SetName(v.name).
+	r, err := v.LogReaderBuilder().
 		SetTimeout(5 * time.Second).
 		SetGrouping(vsl.GroupingRaw).
 		Attach()
@@ -127,8 +125,7 @@ func (v *Varnish) TransactionChannel() (<-chan vsl.Transaction, error) {
 		return nil, fmt.Errorf("vtest: varnish not started")
 	}
 
-	r, err := vsl.New().
-		SetName(v.name).
+	r, err := v.LogReaderBuilder().
 		SetTimeout(5 * time.Second).
 		SetGrouping(vsl.GroupingVXID).
 		Attach()

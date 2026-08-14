@@ -249,9 +249,9 @@ func Example() {
 	}
 }
 
-// VarnishBuilder uses the builder pattern, each configuring function returning a pointer to the [VarnishBuilder]
+// VarnishTestBuilder uses the builder pattern, each configuring function returning a pointer to the [VarnishTestBuilder]
 // so that multiple functions can be chained together.
-func ExampleVarnishBuilder() {
+func ExampleVarnishTestBuilder() {
 	// add the backend definition to the loaded VCL
 	varnish, err := vtest.New().
 		Backend("primary", "http://1.2.3.4:8080").
@@ -348,7 +348,7 @@ func TestCounter(t *testing.T) {
 	}
 }
 
-func ExampleVarnishBuilder_Backend() {
+func ExampleVarnishTestBuilder_Backend() {
 	// create a test backend
 	svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "this is my body")
