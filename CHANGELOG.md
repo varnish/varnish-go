@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.2.0 — 2026-08-15
 
 - **Breaking**: `vtest.VarnishBuilder` renamed to `vtest.VarnishTestBuilder`; `vtest.New()` now returns `*VarnishTestBuilder`
 
@@ -8,6 +8,7 @@
 - **New**: `vcl` — parse Varnish Configuration Language into an AST and render it back. `vcl.NewParser(input)` builds a parser (chainable options for max errors, inline C, missing version declarations, subroutine validation, and include resolution), `Parse()` returns a `*vcl.Vcl`, and `String()` / `AST()` render it or expose the parsed `*ast.Program`. Unlike the other packages, this one is pure Go — no CGo and no libvarnishapi. Vendored from [github.com/perbu/vclparser](https://github.com/perbu/vclparser) under BSD-3-Clause; see `sdk/vcl/NOTICE.md`
 - **New**: `vcl.Vcl.RenderBuilder()` — configure how a parsed `Vcl` renders back to VCL source: `SpaceIndent(n uint)` sets the indentation width (0 for flat output), `RemoveComments(bool)` controls whether comments are stripped. `Vcl.String()` is now a shortcut for `RenderBuilder().SpaceIndent(4).Render()`
 - **New**: `stat` - Added support for inclusion and exclusion of fields when creating a `StatReaderBuilder`
+- **Fix**: `vtest` — listener addresses are now built with `net.JoinHostPort` instead of a naive `%s:%d` format, fixing broken URLs for IPv6 listeners
 
 ## v0.1.2 — 2026-07-20
 
