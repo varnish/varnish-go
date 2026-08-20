@@ -57,6 +57,13 @@ func (c *Conn) TLSCertList(ctx context.Context) ([]TLSCertEntry, error) {
 		return parseTLSCertListVE(msg)
 	}
 	var entries []TLSCertEntry
+	// tls.cert.list -j prints nothing but a trailing newline when no
+	// certificate is loaded yet (a fresh instance's first call, before
+	// any tls.cert.load) - that is not valid JSON, so it must be handled
+	// before Unmarshal rather than passed to it.
+	if strings.TrimSpace(msg) == "" {
+		return entries, nil
+	}
 	if err := json.Unmarshal([]byte(msg), &entries); err != nil {
 		return nil, fmt.Errorf("parse tls.cert.list: %w", err)
 	}
@@ -64,6 +71,9 @@ func (c *Conn) TLSCertList(ctx context.Context) ([]TLSCertEntry, error) {
 }
 
 func parseTLSCertListVE(msg string) ([]TLSCertEntry, error) {
+	if strings.TrimSpace(msg) == "" {
+		return nil, nil
+	}
 	var resp tlsCertListVE
 	if err := json.Unmarshal([]byte(msg), &resp); err != nil {
 		return nil, fmt.Errorf("parse tls.cert.list: %w", err)

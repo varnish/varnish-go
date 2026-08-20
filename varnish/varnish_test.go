@@ -239,6 +239,36 @@ func TestHTTPSListener(t *testing.T) {
 	}
 }
 
+// TestTLSCertListOnVCLLessInstance covers the exact sequence a caller that
+// starts Varnish with no VCL and no static listener certificate (e.g. to
+// hand the very first VCL/cert load to something else, like
+// route-builder's reload) hits: an HTTPS listener exists, but nothing has
+// loaded a VCL or a certificate yet. tls.cert.list -j prints nothing but
+// a trailing newline in that state - not valid JSON - so
+// adm.Conn.TLSCertList has to special-case it rather than handing it to
+// json.Unmarshal as-is. vtest-driven tests never hit this: vtest always
+// loads a VCL as part of starting, so this needs the plain builder with
+// no VclFile/VclString and no HTTPSListener pemFiles.
+func TestTLSCertListOnVCLLessInstance(t *testing.T) {
+	t.Parallel()
+
+	v, err := newBareBuilder(t).
+		HTTPSListener("HTTPS", "127.0.0.1:0").
+		Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(v.Stop)
+
+	entries, err := v.AdmConn().TLSCertList(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("expected no entries on a fresh VCL-less instance, got %+v", entries)
+	}
+}
+
 func TestUDSSocket(t *testing.T) {
 	t.Parallel()
 
