@@ -20,7 +20,6 @@ import (
 	"github.com/varnish/varnish-go/adm"
 	vsl "github.com/varnish/varnish-go/log"
 	"github.com/varnish/varnish-go/stat"
-	"github.com/varnish/varnish-go/version"
 )
 
 type parameter struct {
@@ -126,13 +125,16 @@ func (vb *VarnishBuilder) Parameter(name string, value string) *VarnishBuilder {
 	return vb
 }
 
-// tlsProto returns the protocol name for the TLS listener flag.
-// Varnish Enterprise uses "https"; Varnish Cache uses "TLS".
+// tlsProto returns the protocol name for the TLS listener flag. Both
+// Varnish Enterprise and Varnish Cache parse this via a case-sensitive
+// check against the literal lowercase "https" - there is no edition split
+// here (a prior version of this function returned "TLS" for Varnish
+// Cache, which no listener-arg parser on either edition recognizes: the
+// listener would come up but never be marked TLS-enabled, so
+// tls.cert.load/tls.cert.list would fail with "TLS has not been
+// configured" - see Varnish's own mgt_acceptor.c/mgt_acceptor_tcp.c).
 func tlsProto() string {
-	if version.IsEnterprise() {
-		return "https"
-	}
-	return "TLS"
+	return "https"
 }
 
 // WorkDir sets the varnishd instance name/working directory (-n), created
