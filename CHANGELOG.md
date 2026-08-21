@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- **Fix**: `varnish`: `HTTPSListener` now tags the listener with the literal `https` protocol string on Varnish Cache as well as Varnish Enterprise. It previously tagged Varnish Cache listeners `TLS`, which no listener-arg parser on either edition recognizes, so the listener came up looking fine but was never actually marked TLS-enabled: `tls.cert.load`/`tls.cert.list` would fail with "TLS has not been configured", and in some cases the child process crashed outright (see the now-fixed `TestHTTPSListener`, which previously failed with a child CLI communication error). There is no longer an edition split in `tlsProto`.
+- **Fix**: `varnish`: `HTTPSListener` now tags the listener with the literal `https` protocol string on Varnish Cache as well as Varnish Enterprise, so `tls.cert.load`/`tls.cert.list` no longer fail with "TLS has not been configured" on Varnish Cache.
 - **Fix**: `adm`: `Conn.TLSCertList` no longer errors on a fresh instance with a TLS listener but no certificate loaded yet. `tls.cert.list -j` prints nothing but a trailing newline in that state, which isn't valid JSON; it used to be handed straight to `json.Unmarshal`, failing with "unexpected end of JSON input". Hit by any caller that starts Varnish with no VCL and checks `TLSCertList` before the first `TLSCertLoad`, e.g. a reload helper snapshotting existing certs before its first ever load.
 
 ## v0.2.0 — 2026-08-15
