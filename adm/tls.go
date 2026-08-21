@@ -57,10 +57,10 @@ func (c *Conn) TLSCertList(ctx context.Context) ([]TLSCertEntry, error) {
 		return parseTLSCertListVE(msg)
 	}
 	var entries []TLSCertEntry
-	// tls.cert.list -j prints nothing but a trailing newline when no
-	// certificate is loaded yet (a fresh instance's first call, before
-	// any tls.cert.load) - that is not valid JSON, so it must be handled
-	// before Unmarshal rather than passed to it.
+	// tls.cert.list -j prints nothing but a trailing newline when no VCL
+	// has been loaded yet, which is not valid JSON, so it must be handled
+	// before Unmarshal rather than passed to it. Once a VCL is loaded, it
+	// prints a valid (possibly empty) JSON array even with no certs bound.
 	if strings.TrimSpace(msg) == "" {
 		return entries, nil
 	}

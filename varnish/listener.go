@@ -89,7 +89,7 @@ func (vb *VarnishBuilder) HTTPSListener(name, socket string, pemFiles ...string)
 		vb.setBuildErr(fmt.Errorf("varnish: HTTPSListener %q: %w", name, err))
 		return vb
 	}
-	vb.addresses = append(vb.addresses, name+"="+socket+","+tlsProto)
+	vb.addresses = append(vb.addresses, name+"="+socket+",https")
 	vb.httpsListeners = append(vb.httpsListeners, httpsListener{name: name, pemFiles: pemFiles})
 	return vb
 }

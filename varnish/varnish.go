@@ -125,11 +125,6 @@ func (vb *VarnishBuilder) Parameter(name string, value string) *VarnishBuilder {
 	return vb
 }
 
-// tlsProto is the protocol name for the TLS listener flag. Both Varnish
-// Enterprise and Varnish Cache parse this via a case-sensitive check
-// against the literal lowercase "https".
-const tlsProto = "https"
-
 // WorkDir sets the varnishd instance name/working directory (-n), created
 // via MkdirAll if missing. Defaults to [defaultWorkDir]. [Varnish.Stop]
 // never removes it — that's the caller's responsibility (see the vtest
