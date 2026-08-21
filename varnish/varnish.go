@@ -20,7 +20,6 @@ import (
 	"github.com/varnish/varnish-go/adm"
 	vsl "github.com/varnish/varnish-go/log"
 	"github.com/varnish/varnish-go/stat"
-	"github.com/varnish/varnish-go/version"
 )
 
 type parameter struct {
@@ -124,15 +123,6 @@ func (vb *VarnishBuilder) Jail(jail string) *VarnishBuilder {
 func (vb *VarnishBuilder) Parameter(name string, value string) *VarnishBuilder {
 	vb.parameters = append(vb.parameters, parameter{name: name, value: value})
 	return vb
-}
-
-// tlsProto returns the protocol name for the TLS listener flag.
-// Varnish Enterprise uses "https"; Varnish Cache uses "TLS".
-func tlsProto() string {
-	if version.IsEnterprise() {
-		return "https"
-	}
-	return "TLS"
 }
 
 // WorkDir sets the varnishd instance name/working directory (-n), created

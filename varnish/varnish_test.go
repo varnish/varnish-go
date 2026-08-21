@@ -239,6 +239,29 @@ func TestHTTPSListener(t *testing.T) {
 	}
 }
 
+// TestTLSCertListOnVCLLessInstance verifies TLSCertList returns no entries,
+// rather than erroring, on an instance with an HTTPS listener but no VCL or
+// certificate loaded yet.
+func TestTLSCertListOnVCLLessInstance(t *testing.T) {
+	t.Parallel()
+
+	v, err := newBareBuilder(t).
+		HTTPSListener("HTTPS", "127.0.0.1:0").
+		Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(v.Stop)
+
+	entries, err := v.AdmConn().TLSCertList(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("expected no entries on a fresh VCL-less instance, got %+v", entries)
+	}
+}
+
 func TestUDSSocket(t *testing.T) {
 	t.Parallel()
 
