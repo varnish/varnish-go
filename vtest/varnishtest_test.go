@@ -814,3 +814,70 @@ func TestJail(t *testing.T) {
 		}
 	})
 }
+
+// TestRecordsNotDuplicatedOnReconnect covers the records collector losing its
+// cursor. varnishd reports VSM_WRK_CHANGED on a VCL reload, which invalidates
+// the cursor while leaving the log segment intact; the reader reconnects. The
+// reconnect must resume at the tail, or every record still in the segment is
+// dispatched a second time and Records() reports each one twice.
+func TestRecordsNotDuplicatedOnReconnect(t *testing.T) {
+	t.Parallel()
+	varnish := vtest.New().VclString(`
+		backend default none;
+
+		sub vcl_recv {
+			return(synth(200, "OK"));
+		}
+	`).AssertStart(t)
+	t.Cleanup(varnish.Stop)
+
+	// A URL unique to this test, so the ReqURL records counted below cannot
+	// come from anything else.
+	const url = "/records-not-duplicated-on-reconnect"
+	resp, err := http.Get(varnish.URL + url)
+	if err != nil {
+		t.Fatalf("GET %s: %v", url, err)
+	}
+	resp.Body.Close()
+
+	countURLRecords := func() int {
+		count := 0
+		for _, record := range varnish.Records() {
+			if strings.Contains(record.Data, url) {
+				count++
+			}
+		}
+		return count
+	}
+
+	// The collector is asynchronous, so wait for the request to land before
+	// disturbing the cursor.
+	deadline := time.Now().Add(5 * time.Second)
+	for countURLRecords() == 0 {
+		if time.Now().After(deadline) {
+			t.Fatalf("no record containing %q collected within 5s", url)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	before := countURLRecords()
+
+	// Load and activate a second VCL, so varnishd reports the change that
+	// invalidates the reader's cursor.
+	ctx := context.Background()
+	if err := varnish.AdmConn().VCLInline(ctx, "reloaded", `
+		vcl 4.1;
+		backend default none;
+	`, adm.VCLStateAuto); err != nil {
+		t.Fatalf("vcl.inline: %v", err)
+	}
+	if err := varnish.AdmConn().VCLUse(ctx, "reloaded"); err != nil {
+		t.Fatalf("vcl.use: %v", err)
+	}
+
+	// Give the reader time to notice the change and reconnect. A replaying
+	// reconnect re-dispatches the whole segment, so the count grows.
+	time.Sleep(2 * time.Second)
+	if after := countURLRecords(); after != before {
+		t.Errorf("records containing %q went from %d to %d across a reconnect; the reconnect replayed the log segment", url, before, after)
+	}
+}

@@ -503,6 +503,10 @@ func (r *LogReader) runFile(ctx context.Context, priv C.uintptr_t) error {
 
 func (r *LogReader) runLive(ctx context.Context, priv C.uintptr_t) error {
 	hascursor := false
+	// Backlog covers the records buffered before the first cursor. A reconnect
+	// has already seen those, so it must resume at the tail or it dispatches
+	// the whole segment again.
+	backlog := r.backlog
 	for {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -520,7 +524,7 @@ func (r *LogReader) runLive(ctx context.Context, priv C.uintptr_t) error {
 				continue
 			}
 			opts := C.uint(C.VSL_COPT_BATCH)
-			if !r.backlog {
+			if !backlog {
 				opts |= C.uint(C.VSL_COPT_TAIL)
 			}
 			c := C.VSL_CursorVSM(r.vsl, r.vsm, opts)
@@ -535,6 +539,7 @@ func (r *LogReader) runLive(ctx context.Context, priv C.uintptr_t) error {
 			}
 			C.VSLQ_SetCursor(r.vslq, &c)
 			hascursor = true
+			backlog = false
 		} else if status&uint(C.VSM_WRK_RESTARTED|C.VSM_WRK_CHANGED) != 0 {
 			// Worker restarted or VSM changed (e.g. VCL reload on Varnish Plus):
 			// existing cursor is stale — flush pending records and reconnect.

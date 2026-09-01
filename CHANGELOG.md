@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Fix**: `log` — a reconnect after a lost cursor no longer replays the log segment. `SetBacklog(true)` was re-applied on every reconnect, so a worker restart or VSM change (a VCL reload on Varnish Enterprise) re-dispatched every record still buffered, and `vtest.Varnish.Records()` reported each one twice. Backlog now applies only to the first cursor; reconnects resume at the tail
+
 ## v0.2.0 — 2026-08-15
 
 - **Breaking**: `vtest.VarnishBuilder` renamed to `vtest.VarnishTestBuilder`; `vtest.New()` now returns `*VarnishTestBuilder`
