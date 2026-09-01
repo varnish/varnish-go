@@ -257,6 +257,13 @@ func (vb *VarnishTestBuilder) Parameter(name string, value string) *VarnishTestB
 	return vb
 }
 
+// Storage appends -s storage backend specifications to the varnishd command
+// line. See [varnish.VarnishBuilder.Storage].
+func (vb *VarnishTestBuilder) Storage(specifications ...string) *VarnishTestBuilder {
+	vb.VarnishBuilder.Storage(specifications...)
+	return vb
+}
+
 // HTTPListener adds a named plain-HTTP listener. See [varnish.VarnishBuilder.HTTPListener].
 func (vb *VarnishTestBuilder) HTTPListener(name, socket string) *VarnishTestBuilder {
 	vb.VarnishBuilder.HTTPListener(name, socket)

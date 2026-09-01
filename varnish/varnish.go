@@ -41,6 +41,7 @@ type VarnishBuilder struct {
 	jail               string
 	readOnlyParameters []string
 	parameters         []parameter
+	storage            []string
 	output             io.Writer
 
 	workDir     string
@@ -123,6 +124,22 @@ func (vb *VarnishBuilder) Jail(jail string) *VarnishBuilder {
 // after start via [Varnish.AdmConn] and [adm.Conn.ParamSet].
 func (vb *VarnishBuilder) Parameter(name string, value string) *VarnishBuilder {
 	vb.parameters = append(vb.parameters, parameter{name: name, value: value})
+	return vb
+}
+
+// Storage appends -s storage backend specifications to the varnishd command
+// line, each passed through as-is. Called more than once, or with more than one
+// specification, every backend is configured, in the order given.
+//
+// Not calling it leaves varnishd on its own default storage, so callers that do
+// not care about storage need not. Specifications are not validated here;
+// varnishd rejects an unusable one at startup and [VarnishBuilder.Build]
+// surfaces that along with the captured diagnostics.
+//
+//	builder.Storage("malloc,256m")
+//	builder.Storage("mse4," + configPath) // Varnish Enterprise only
+func (vb *VarnishBuilder) Storage(specifications ...string) *VarnishBuilder {
+	vb.storage = append(vb.storage, specifications...)
 	return vb
 }
 
@@ -274,6 +291,9 @@ func (vb *VarnishBuilder) Build() (varnish Varnish, err error) {
 	}
 	if len(vb.readOnlyParameters) > 0 {
 		args = append(args, "-r", strings.Join(vb.readOnlyParameters, ","))
+	}
+	for _, specification := range vb.storage {
+		args = append(args, "-s", specification)
 	}
 	for _, a := range vb.addresses {
 		args = append(args, "-a", a)

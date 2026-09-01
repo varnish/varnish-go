@@ -189,6 +189,41 @@ func TestAdm(t *testing.T) {
 	}
 }
 
+func TestStorage(t *testing.T) {
+	t.Parallel()
+	// Named so storage.list distinguishes it from the default varnishd would
+	// have picked on its own.
+	varnish := vtest.New().
+		Storage("probe=malloc,256m").
+		VclString("backend default none;").
+		AssertStart(t)
+	t.Cleanup(varnish.Stop)
+
+	devices, err := varnish.Adm("storage.list")
+	if err != nil {
+		t.Fatalf("storage.list: %v", err)
+	}
+	if !strings.Contains(devices, "storage.probe") {
+		t.Errorf("expected the configured storage backend in storage.list, got:\n%s", devices)
+	}
+}
+
+func TestStorageDefaultWhenUnset(t *testing.T) {
+	t.Parallel()
+	varnish := vtest.New().VclString("backend default none;").AssertStart(t)
+	t.Cleanup(varnish.Stop)
+
+	// No -s is emitted, so varnishd names its own storage s0. This is what
+	// every test that does not call Storage keeps getting.
+	devices, err := varnish.Adm("storage.list")
+	if err != nil {
+		t.Fatalf("storage.list: %v", err)
+	}
+	if !strings.Contains(devices, "storage.s0") {
+		t.Errorf("expected varnishd's default storage in storage.list, got:\n%s", devices)
+	}
+}
+
 func TestVarnishBuilder_AssertStart(t *testing.T) {
 	varnish := vtest.New().VclString(`
                 backend default none;
