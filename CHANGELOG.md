@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **New**: `varnish.VarnishBuilder.Storage()` / `vtest.VarnishTestBuilder.Storage()` — append `-s` storage backend specifications to the varnishd command line, so a test can run on sized malloc or on MSE instead of only varnishd's default. Not calling it emits no `-s`, leaving existing behaviour unchanged
+
 ## v0.2.0 — 2026-08-15
 
 - **Breaking**: `vtest.VarnishBuilder` renamed to `vtest.VarnishTestBuilder`; `vtest.New()` now returns `*VarnishTestBuilder`
