@@ -6,7 +6,10 @@ on:
 
 jobs:
   ci:
-    runs-on: ubuntu-latest
+    # Not ubuntu-latest: on Ubuntu 26.04 apt only fetches binary-amd64v3
+    # indexes, which the Varnish Cache repo does not publish, so varnish-dev
+    # cannot be found.
+    runs-on: ubuntu-24.04
 
     strategy:
       fail-fast: false

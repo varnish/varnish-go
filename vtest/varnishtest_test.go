@@ -849,3 +849,67 @@ func TestJail(t *testing.T) {
 		}
 	})
 }
+
+// TestRecordsNotDuplicatedAcrossVCLLoad checks that loading a VCL does not make
+// the records collector report a record twice. The collector reads with
+// backlog, so a reconnect would dispatch every record still in the log again.
+func TestRecordsNotDuplicatedAcrossVCLLoad(t *testing.T) {
+	t.Parallel()
+	varnish := vtest.New().VclString(`
+		backend default none;
+
+		sub vcl_recv {
+			return(synth(200, "OK"));
+		}
+	`).AssertStart(t)
+	t.Cleanup(varnish.Stop)
+
+	// A URL unique to this test, so the ReqURL records counted below cannot
+	// come from anything else.
+	const url = "/records-not-duplicated-across-vcl-load"
+	resp, err := http.Get(varnish.URL + url)
+	if err != nil {
+		t.Fatalf("GET %s: %v", url, err)
+	}
+	resp.Body.Close()
+
+	countURLRecords := func() int {
+		count := 0
+		for _, record := range varnish.Records() {
+			if strings.Contains(record.Data, url) {
+				count++
+			}
+		}
+		return count
+	}
+
+	// The collector is asynchronous, so wait for the request to land before
+	// disturbing the cursor.
+	deadline := time.Now().Add(5 * time.Second)
+	for countURLRecords() == 0 {
+		if time.Now().After(deadline) {
+			t.Fatalf("no record containing %q collected within 5s", url)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	before := countURLRecords()
+
+	// Load and activate a second VCL with a backend, so the VSM changes.
+	ctx := context.Background()
+	if err := varnish.AdmConn().VCLInline(ctx, "reloaded", `
+		vcl 4.1;
+		backend default { .host = "127.0.0.1"; .port = "9"; }
+	`, adm.VCLStateAuto); err != nil {
+		t.Fatalf("vcl.inline: %v", err)
+	}
+	if err := varnish.AdmConn().VCLUse(ctx, "reloaded"); err != nil {
+		t.Fatalf("vcl.use: %v", err)
+	}
+
+	// Give the reader time to notice the change. A reconnect would replay the
+	// whole segment, so the count would grow.
+	time.Sleep(2 * time.Second)
+	if after := countURLRecords(); after != before {
+		t.Errorf("records containing %q went from %d to %d across a VCL load; the reader replayed the log segment", url, before, after)
+	}
+}

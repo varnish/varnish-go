@@ -503,15 +503,20 @@ func (r *LogReader) runFile(ctx context.Context, priv C.uintptr_t) error {
 
 func (r *LogReader) runLive(ctx context.Context, priv C.uintptr_t) error {
 	hascursor := false
+	// midBatch is set while VSLQ_Dispatch is part way through a batch. With raw
+	// grouping the VSLQ keeps its position in the batch between calls, and
+	// VSLQ_SetCursor(vslq, NULL) unmaps the batch without clearing that
+	// position, so the cursor must only be dropped once the batch is used up.
+	// Like varnishlog, check the worker only then. VSM_Status reports a
+	// restart once, so it is not called at all in the middle of a batch.
+	midBatch := false
 	for {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
 
-		status := uint(C.VSM_Status(r.vsm))
-
 		if !hascursor {
-			if status&uint(C.VSM_WRK_RUNNING) == 0 {
+			if uint(C.VSM_Status(r.vsm))&uint(C.VSM_WRK_RUNNING) == 0 {
 				select {
 				case <-ctx.Done():
 					return ctx.Err()
@@ -535,9 +540,11 @@ func (r *LogReader) runLive(ctx context.Context, priv C.uintptr_t) error {
 			}
 			C.VSLQ_SetCursor(r.vslq, &c)
 			hascursor = true
-		} else if status&uint(C.VSM_WRK_RESTARTED|C.VSM_WRK_CHANGED) != 0 {
-			// Worker restarted or VSM changed (e.g. VCL reload on Varnish Plus):
-			// existing cursor is stale — flush pending records and reconnect.
+		} else if !midBatch && uint(C.VSM_Status(r.vsm))&uint(C.VSM_WRK_RESTARTED) != 0 {
+			// Worker restarted: its log is in a new segment, so flush pending
+			// records and reconnect. Other VSM changes, such as the counter
+			// segments a vcl.load adds, leave the log segment alone. Should the
+			// segment go away anyway, the cursor reports vslEAbandon.
 			r.notifyErr(ErrWorkerRestarted)
 			C.callVSLQFlush(r.vslq, priv)
 			if err := r.takeHandlerErr(); err != nil {
@@ -552,6 +559,7 @@ func (r *LogReader) runLive(ctx context.Context, priv C.uintptr_t) error {
 		if err := r.takeHandlerErr(); err != nil {
 			return err
 		}
+		midBatch = i == vslMore
 
 		switch i {
 		case vslMore:
